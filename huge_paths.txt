@@ -1,0 +1,10 @@
+﻿D:\Development\flutter project\android\app\build\intermediates\merged_native_libs\debug\mergeDebugNativeLibs\out\lib\x86_64\libflutter.so
+D:\Development\flutter project\android\app\build\outputs\apk\debug\app-debug.apk
+D:\Development\flutter project\android\app\build\outputs\flutter-apk\app-debug.apk
+D:\Development\flutter project\android\app\build\intermediates\incremental\debug-mergeJavaRes\zip-cache\oSstr0SeGfuTetzsb52AOnV9_yY=
+D:\Development\flutter project\android\app\build\intermediates\flutter\debug\flutter_assets\kernel_blob.bin
+D:\Development\flutter project\android\app\build\intermediates\assets\debug\mergeDebugAssets\flutter_assets\kernel_blob.bin
+D:\Development\flutter project\android\app\build\intermediates\stripped_native_libs\debug\stripDebugDebugSymbols\out\lib\x86_64\libflutter.so
+D:\Development\flutter project\android\app\build\intermediates\compressed_assets\debug\compressDebugAssets\out\assets\flutter_assets\kernel_blob.bin.jar
+D:\Development\flutter project\android\app\build\intermediates\dex\debug\mergeExtDexDebug\classes.dex
+D:\Development\flutter project\android\.gradle\8.13\executionHistory\executionHistory.bin
