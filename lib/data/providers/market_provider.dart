@@ -37,6 +37,7 @@ class MarketNotifier extends Notifier<Map<String, MarketData>> {
       'NIFTY50': MarketData(
         symbol: 'NIFTY50',
         name: 'NIFTY 50',
+        category: 'Index',
         currentPrice: 22400.50,
         priceChange: 45.20,
         changePercentage: 0.20,
@@ -46,6 +47,7 @@ class MarketNotifier extends Notifier<Map<String, MarketData>> {
       'SENSEX': MarketData(
         symbol: 'SENSEX',
         name: 'SENSEX',
+        category: 'Index',
         currentPrice: 73800.00,
         priceChange: 120.50,
         changePercentage: 0.16,
@@ -60,6 +62,7 @@ class MarketNotifier extends Notifier<Map<String, MarketData>> {
       map[sym] = MarketData(
         symbol: sym,
         name: name,
+        category: 'Stocks',
         currentPrice: price,
         priceChange: (price * (_random.nextDouble() * 0.02 - 0.01)),
         changePercentage: (_random.nextDouble() * 2 - 1),
@@ -70,7 +73,16 @@ class MarketNotifier extends Notifier<Map<String, MarketData>> {
 
     // Add ETFs
     MockRepository.getETFs().forEach((etf) {
-      map[etf.symbol] = etf;
+      map[etf.symbol] = etf.copyWith(
+        history: List.generate(30, (i) => (etf.currentPrice * 0.98) + _random.nextDouble() * (etf.currentPrice * 0.04)),
+      );
+    });
+
+    // Add Mutual Funds
+    MockRepository.getMutualFunds().forEach((mf) {
+      map[mf.symbol] = mf.copyWith(
+        history: List.generate(30, (i) => (mf.currentPrice * 0.98) + _random.nextDouble() * (mf.currentPrice * 0.04)),
+      );
     });
 
     // Add Post Office Schemes
@@ -78,11 +90,26 @@ class MarketNotifier extends Notifier<Map<String, MarketData>> {
       map[scheme.id] = MarketData(
         symbol: scheme.id,
         name: scheme.name,
-        currentPrice: scheme.minInvestment, // Initial view
+        category: 'Post Office Schemes',
+        currentPrice: scheme.minInvestment,
         priceChange: 0,
         changePercentage: 0,
         lastUpdated: DateTime.now(),
-        history: [scheme.minInvestment],
+        history: List.generate(30, (i) => (scheme.minInvestment * 0.99) + _random.nextDouble() * (scheme.minInvestment * 0.02)),
+      );
+    });
+
+    // Add Insurance
+    MockRepository.getInsuranceProducts().forEach((p) {
+      map[p.id] = MarketData(
+        symbol: p.id,
+        name: p.planName,
+        category: 'Insurance',
+        currentPrice: p.annualPremium,
+        priceChange: 0,
+        changePercentage: 0,
+        lastUpdated: DateTime.now(),
+        history: List.generate(30, (i) => (p.annualPremium * 0.99) + _random.nextDouble() * (p.annualPremium * 0.02)),
       );
     });
 
@@ -120,5 +147,20 @@ class MarketNotifier extends Notifier<Map<String, MarketData>> {
     });
   }
 }
+
+class PriceUpdatesNotifier extends Notifier<Map<String, double>> {
+  @override
+  Map<String, double> build() => {};
+
+  void updatePrices(Map<String, int> pricesInPaise) {
+    final newState = Map<String, double>.from(state);
+    pricesInPaise.forEach((assetId, pricePaise) {
+      newState[assetId] = pricePaise / 100.0;
+    });
+    state = newState;
+  }
+}
+
+final priceUpdatesProvider = NotifierProvider<PriceUpdatesNotifier, Map<String, double>>(PriceUpdatesNotifier.new);
 
 final marketDataProvider = NotifierProvider<MarketNotifier, Map<String, MarketData>>(MarketNotifier.new);

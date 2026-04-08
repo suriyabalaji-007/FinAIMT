@@ -12,6 +12,8 @@ class BalanceCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final currencyFormat = NumberFormat.currency(locale: 'en_IN', symbol: '₹');
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Theme.of(context).colorScheme.primary;
     
     return GestureDetector(
       onTap: onTap,
@@ -20,17 +22,16 @@ class BalanceCard extends StatelessWidget {
         margin: const EdgeInsets.only(right: 16),
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: isDark ? Theme.of(context).cardTheme.color : primaryColor,
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: Colors.white.withOpacity(0.05)),
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Colors.white.withOpacity(0.05),
-              Colors.transparent,
-            ],
-          ),
+          border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.transparent),
+          boxShadow: isDark ? [] : [
+            BoxShadow(
+              color: primaryColor.withOpacity(0.3),
+              blurRadius: 15,
+              offset: const Offset(0, 8),
+            )
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -39,28 +40,49 @@ class BalanceCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(account.bankName, 
-                  style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 14, fontWeight: FontWeight.w500)),
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.9), 
+                    fontSize: 14, 
+                    fontWeight: FontWeight.w500
+                  )
+                ),
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.05),
+                    color: Colors.white.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.account_balance_wallet_outlined, color: Colors.white70, size: 20),
+                  child: const Icon(Icons.account_balance_wallet_outlined, 
+                    color: Colors.white70, 
+                    size: 20
+                  ),
                 ),
               ],
             ),
             const Spacer(),
-            Text('Balance', style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12)),
+            Text('Balance', 
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.6), 
+                fontSize: 12
+              )
+            ),
             const SizedBox(height: 4),
             Text(
               currencyFormat.format(account.balance),
-              style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold),
+              style: const TextStyle(
+                color: Colors.white, 
+                fontSize: 26, 
+                fontWeight: FontWeight.bold
+              ),
             ),
             const SizedBox(height: 16),
             Text(
               account.accountNumber, 
-              style: const TextStyle(color: Colors.white38, fontSize: 14, letterSpacing: 1.5),
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.4), 
+                fontSize: 14, 
+                letterSpacing: 1.5
+              ),
             ),
           ],
         ),
@@ -85,6 +107,8 @@ class QuickAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(20),
@@ -92,17 +116,30 @@ class QuickAction extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.white.withOpacity(0.05)),
+              // In light mode, circular background with very light grey/blue like the image
+              color: isDark ? Theme.of(context).cardTheme.color : const Color(0xFFF2F4F7),
+              shape: BoxShape.circle,
+              border: isDark ? Border.all(color: Colors.white.withOpacity(0.05)) : null,
+              boxShadow: isDark ? [] : [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.02),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                )
+              ],
             ),
-            child: Icon(icon, color: Colors.white, size: 24),
+            child: Icon(icon, color: isDark ? Colors.white : color, size: 24),
           ),
           const SizedBox(height: 10),
           Text(label, 
-            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary, fontWeight: FontWeight.w500)),
+            style: TextStyle(
+              fontSize: 12, 
+              color: isDark ? AppColors.textSecondary : LightColors.textPrimary, 
+              fontWeight: FontWeight.w600
+            )
+          ),
         ],
       ),
     );
@@ -119,6 +156,7 @@ class TransactionTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final currencyFormat = NumberFormat.currency(locale: 'en_IN', symbol: '₹');
     final isDebit = transaction.type == TransactionType.debit;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return InkWell(
       onTap: onTap,
@@ -129,10 +167,14 @@ class TransactionTile extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppColors.surface,
+                color: isDark ? Theme.of(context).colorScheme.surface : const Color(0xFFF2F4F7),
                 borderRadius: BorderRadius.circular(16),
+                border: isDark ? Border.all(color: Colors.white.withOpacity(0.05)) : null,
               ),
-              child: Icon(transaction.icon, color: Colors.white70, size: 24),
+              child: Icon(transaction.icon, 
+                color: isDark ? Colors.white70 : LightColors.textPrimary.withOpacity(0.7), 
+                size: 24
+              ),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -140,10 +182,19 @@ class TransactionTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(transaction.title, 
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold, 
+                      fontSize: 15,
+                      color: isDark ? Colors.white : LightColors.textPrimary
+                    )
+                  ),
                   const SizedBox(height: 4),
                   Text(transaction.subtitle, 
-                    style: const TextStyle(fontSize: 12, color: AppColors.textHint)),
+                    style: TextStyle(
+                      fontSize: 12, 
+                      color: isDark ? AppColors.textHint : LightColors.textSecondary
+                    )
+                  ),
                 ],
               ),
             ),
@@ -152,7 +203,9 @@ class TransactionTile extends StatelessWidget {
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 15,
-                color: isDebit ? Colors.white : AppColors.primary,
+                color: isDebit 
+                  ? (isDark ? Colors.white : Colors.redAccent) 
+                  : Theme.of(context).colorScheme.primary,
               ),
             ),
           ],

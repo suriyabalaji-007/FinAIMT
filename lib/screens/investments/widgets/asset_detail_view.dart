@@ -4,46 +4,73 @@ import 'package:fin_aimt/core/theme.dart';
 import 'package:fin_aimt/data/providers/investment_provider.dart';
 import 'package:fin_aimt/data/providers/market_provider.dart';
 import 'package:fin_aimt/data/models/finance_models.dart';
+import 'package:fin_aimt/widgets/unified_payment_flow.dart';
+import 'package:fin_aimt/screens/investments/transaction_history_view.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 
-class AssetDetailView extends ConsumerWidget {
+class AssetDetailView extends ConsumerStatefulWidget {
   final String assetId;
-
   const AssetDetailView({super.key, required this.assetId});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AssetDetailView> createState() => _AssetDetailViewState();
+}
+
+class _AssetDetailViewState extends ConsumerState<AssetDetailView> {
+  String _selectedTime = '1D';
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final marketData = ref.watch(marketDataProvider);
     final portfolio = ref.watch(dynamicInvestmentsProvider);
     
-    final marketAsset = marketData[assetId];
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final textSubColor = isDark ? Colors.white30 : Colors.black54;
+
+    final marketAsset = marketData[widget.assetId];
     final investment = portfolio.firstWhere(
-      (inv) => inv.assetId == assetId,
+      (inv) => inv.assetId == widget.assetId,
       orElse: () => Investment(
-        assetId: assetId, 
+        assetId: widget.assetId, 
         name: marketAsset?.name ?? 'Unknown', 
         investedAmount: 0, 
         currentAmount: 0, 
-        changePercentage: 0, 
-        category: marketAsset?.symbol.contains('BEES') == true ? 'ETFs' : 'Stocks',
+        changePercentage: marketAsset?.changePercentage ?? 0, 
+        category: marketAsset?.category ?? 'Stocks',
       ),
     );
 
+    if (marketAsset == null) {
+      return Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        body: const Center(child: CircularProgressIndicator(color: AppColors.primary)),
+      );
+    }
+
     final currencyFormat = NumberFormat.currency(locale: 'en_IN', symbol: '₹');
-    final isUp = investment.changePercentage >= 0;
+    final isUp = marketAsset.changePercentage >= 0;
     final themeColor = isUp ? AppColors.primary : Colors.redAccent;
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
+        iconTheme: IconThemeData(color: textColor),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(investment.name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            Text(investment.category, style: const TextStyle(fontSize: 12, color: Colors.white30)),
+            Text(marketAsset.name, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor)),
+            Text(marketAsset.category, style: TextStyle(fontSize: 12, color: textSubColor)),
           ],
         ),
         actions: [
@@ -71,7 +98,6 @@ class AssetDetailView extends ConsumerWidget {
       body: Column(
         children: [
           const SizedBox(height: 20),
-          // Real-time Price Header
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 25),
             child: Row(
@@ -80,11 +106,11 @@ class AssetDetailView extends ConsumerWidget {
               textBaseline: TextBaseline.alphabetic,
               children: [
                 Text(
-                  currencyFormat.format(investment.currentAmount / (investment.quantity > 0 ? investment.quantity : 1)),
-                  style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
+                  currencyFormat.format(marketAsset.currentPrice),
+                  style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: textColor),
                 ),
                 Text(
-                  '${isUp ? '+' : ''}${investment.changePercentage}%',
+                  '${isUp ? '+' : ''}${marketAsset.changePercentage.toStringAsFixed(2)}%',
                   style: TextStyle(color: themeColor, fontSize: 18, fontWeight: FontWeight.bold),
                 ),
               ],
@@ -92,50 +118,57 @@ class AssetDetailView extends ConsumerWidget {
           ),
           const SizedBox(height: 40),
           
-          // Live Scrolling Chart
-          SizedBox(
-            height: 300,
-            width: double.infinity,
-            child: _buildLiveChart(investment.history, themeColor),
+          Padding(
+            padding: const EdgeInsets.only(right: 15, left: 5),
+            child: SizedBox(
+              height: 250,
+              width: double.infinity,
+              child: _buildLiveChart(marketAsset.history, themeColor, isDark),
+            ),
           ),
+          
+          const SizedBox(height: 15),
+          _buildTimeSelector(isDark),
           
           const Spacer(),
           
-          // Investment Stats
           Container(
             padding: const EdgeInsets.all(25),
             decoration: BoxDecoration(
-              color: AppColors.surface,
+              color: isDark ? AppColors.surface : Colors.white,
               borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-              border: Border.all(color: Colors.white.withOpacity(0.05)),
+              border: Border.all(color: (isDark ? Colors.white : Colors.black).withOpacity(0.05)),
+              boxShadow: isDark ? [] : [
+                BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, -4))
+              ],
             ),
             child: Column(
               children: [
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    _buildStatItem('Invested', currencyFormat.format(investment.investedAmount)),
-                    _buildStatItem('Market Value', currencyFormat.format(investment.currentAmount)),
+                    _buildStatItem('Invested', currencyFormat.format(investment.investedAmount), isDark),
+                    _buildStatItem('Market Value', currencyFormat.format(investment.currentAmount), isDark),
                   ],
                 ),
                 const SizedBox(height: 20),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    _buildStatItem('Quantity', investment.quantity.toStringAsFixed(2)),
-                    _buildStatItem('Avg. Price', currencyFormat.format(investment.averagePrice)),
+                    _buildStatItem('Quantity', investment.quantity.toStringAsFixed(2), isDark),
+                    _buildStatItem('Avg. Price', currencyFormat.format(investment.averagePrice), isDark),
                   ],
                 ),
                 const SizedBox(height: 30),
                 
-                // Trade Buttons
                 Row(
                   children: [
                     Expanded(
                       child: _buildTradeButton(
                         'SELL', 
                         Colors.redAccent, 
-                        () => _showTradeDialog(context, ref, investment, 'sell'),
+                        () => _showTradeDialog(context, ref, investment.copyWith(name: marketAsset.name, currentAmount: investment.currentAmount), 'sell'),
+                        isDark,
                       ),
                     ),
                     const SizedBox(width: 15),
@@ -143,7 +176,8 @@ class AssetDetailView extends ConsumerWidget {
                       child: _buildTradeButton(
                         'BUY', 
                         AppColors.primary, 
-                        () => _showTradeDialog(context, ref, investment, 'buy'),
+                        () => _showTradeDialog(context, ref, investment.copyWith(name: marketAsset.name, currentAmount: marketAsset.currentPrice), 'buy'),
+                        isDark,
                       ),
                     ),
                   ],
@@ -156,7 +190,19 @@ class AssetDetailView extends ConsumerWidget {
     );
   }
 
-  Widget _buildLiveChart(List<double> history, Color color) {
+  Widget _buildLiveChart(List<double> realHistory, Color color, bool isDark) {
+    List<double> history = realHistory;
+    
+    if (_selectedTime != '1D' && realHistory.isNotEmpty) {
+      final basePrice = realHistory.last;
+      int points = _selectedTime == '1W' ? 100 : _selectedTime == '1M' ? 150 : 200;
+      history = List.generate(points, (i) {
+        final offset = points - i;
+        return basePrice * (1.0 - (offset * 0.001) + (0.05 * (i % 5 == 0 ? 1 : -1)));
+      });
+      history.add(basePrice);
+    }
+
     if (history.length < 2) {
       return const Center(child: CircularProgressIndicator(color: AppColors.primary));
     }
@@ -166,21 +212,63 @@ class AssetDetailView extends ConsumerWidget {
       spots.add(FlSpot(i.toDouble(), history[i]));
     }
 
+    final maxXVal = history.length - 1.0;
+
     return LineChart(
       LineChartData(
         minX: 0,
-        maxX: 59, // Always show a 60-point window
-        gridData: const FlGridData(show: false),
-        titlesData: const FlTitlesData(show: false),
+        maxX: maxXVal,
+        gridData: FlGridData(
+          show: true,
+          drawVerticalLine: false,
+          horizontalInterval: 100, 
+          getDrawingHorizontalLine: (value) => FlLine(color: (isDark ? Colors.white : Colors.black).withOpacity(0.05), strokeWidth: 1),
+        ),
+        titlesData: FlTitlesData(
+          show: true,
+          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              interval: maxXVal > 60 ? (maxXVal / 5) : 15,
+              reservedSize: 24,
+              getTitlesWidget: (value, meta) {
+                if (value >= maxXVal) return const SizedBox.shrink();
+                
+                String label;
+                if (_selectedTime == '1D') {
+                  final secondsAgo = maxXVal - value.toInt();
+                  final time = DateTime.now().subtract(Duration(seconds: secondsAgo.toInt()));
+                  label = DateFormat('HH:mm:ss').format(time);
+                } else {
+                  final daysAgo = maxXVal - value.toInt();
+                  final date = DateTime.now().subtract(Duration(days: daysAgo.toInt()));
+                  label = DateFormat('MMM dd').format(date);
+                }
+
+                return Padding(
+                  padding: const EdgeInsets.only(top: 8.0),
+                  child: Text(
+                    label,
+                    style: TextStyle(color: isDark ? Colors.white30 : Colors.black54, fontSize: 10, fontWeight: FontWeight.bold),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
         borderData: FlBorderData(show: false),
         lineTouchData: LineTouchData(
+          handleBuiltInTouches: true,
           touchTooltipData: LineTouchTooltipData(
-            tooltipBgColor: AppColors.surface,
+            tooltipBgColor: isDark ? AppColors.surface : Colors.white,
             getTooltipItems: (touchedSpots) {
               return touchedSpots.map((spot) {
                 return LineTooltipItem(
                   '₹${spot.y.toStringAsFixed(2)}',
-                  const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  TextStyle(color: isDark ? Colors.white : Colors.black, fontWeight: FontWeight.bold),
                 );
               }).toList();
             },
@@ -208,23 +296,59 @@ class AssetDetailView extends ConsumerWidget {
     );
   }
 
-  Widget _buildStatItem(String label, String value) {
+  Widget _buildTimeSelector(bool isDark) {
+    final times = ['1D', '1W', '1M', '3M', '1Y', 'ALL'];
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 25),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: times.map((t) {
+          final isSelected = t == _selectedTime;
+          return GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () {
+              setState(() {
+                _selectedTime = t;
+              });
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: isSelected ? AppColors.primary.withOpacity(0.15) : Colors.transparent,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                t,
+                style: TextStyle(
+                  color: isSelected ? AppColors.primary : (isDark ? Colors.white30 : Colors.black54),
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildStatItem(String label, String value, bool isDark) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(color: Colors.white30, fontSize: 12)),
+        Text(label, style: TextStyle(color: isDark ? Colors.white30 : Colors.black54, fontSize: 12)),
         const SizedBox(height: 4),
-        Text(value, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+        Text(value, style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 16, fontWeight: FontWeight.bold)),
       ],
     );
   }
 
-  Widget _buildTradeButton(String label, Color color, VoidCallback onTap) {
+  Widget _buildTradeButton(String label, Color color, VoidCallback onTap, bool isDark) {
     return ElevatedButton(
       onPressed: onTap,
       style: ElevatedButton.styleFrom(
         backgroundColor: color,
-        foregroundColor: Colors.black,
+        foregroundColor: Colors.white,
         padding: const EdgeInsets.symmetric(vertical: 18),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         elevation: 0,
@@ -234,25 +358,34 @@ class AssetDetailView extends ConsumerWidget {
   }
 
   void _showTradeDialog(BuildContext context, WidgetRef ref, Investment inv, String side) {
+    if (side == 'sell') {
+      _showSellDialog(context, ref, inv);
+      return;
+    }
+    UnifiedPaymentFlow.show(
+      context: context,
+      ref: ref,
+      assetName: inv.name,
+      category: inv.category.isEmpty ? 'Stocks' : inv.category,
+      quantity: 1,
+      pricePerUnit: inv.currentAmount > 0 ? inv.currentAmount : 1,
+      side: side,
+    );
+  }
+
+  void _showSellDialog(BuildContext context, WidgetRef ref, Investment inv) {
     final qtyController = TextEditingController(text: '1.0');
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final currencyFormat = NumberFormat.currency(locale: 'en_IN', symbol: '₹');
-    final currentPrice = inv.currentAmount / (inv.quantity > 0 ? inv.quantity : 1);
+    final price = inv.currentAmount / (inv.quantity > 0 ? inv.quantity : 1);
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-          left: 25,
-          right: 25,
-          top: 25,
-        ),
-        decoration: const BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-        ),
+      builder: (ctx) => Container(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom + 30, left: 25, right: 25, top: 25),
+        decoration: BoxDecoration(color: isDark ? AppColors.surface : Colors.white, borderRadius: const BorderRadius.vertical(top: Radius.circular(32))),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -260,66 +393,45 @@ class AssetDetailView extends ConsumerWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  '${side.toUpperCase()} ${inv.name}',
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-                IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close, color: Colors.white30)),
+                Text('SELL ${inv.name}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87)),
+                IconButton(onPressed: () => Navigator.pop(ctx), icon: Icon(Icons.close, color: isDark ? Colors.white30 : Colors.black54)),
               ],
             ),
-            const SizedBox(height: 10),
-            Text('Market Price: ${currencyFormat.format(currentPrice)}', style: const TextStyle(color: Colors.white30)),
-            const SizedBox(height: 30),
+            const SizedBox(height: 8),
+            Text('Price: ${currencyFormat.format(price)}', style: TextStyle(color: isDark ? Colors.white38 : Colors.black45)),
+            const SizedBox(height: 20),
             TextField(
               controller: qtyController,
               autofocus: true,
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black),
               decoration: InputDecoration(
                 labelText: 'Quantity',
-                labelStyle: const TextStyle(color: Colors.white30),
+                labelStyle: TextStyle(color: isDark ? Colors.white30 : Colors.black54),
                 suffixText: 'UNITS',
-                suffixStyle: const TextStyle(color: Colors.white30, fontSize: 14),
-                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white.withOpacity(0.1))),
-                focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: AppColors.primary)),
-              ),
-            ),
-            const SizedBox(height: 40),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  final qty = double.tryParse(qtyController.text) ?? 0.0;
-                  if (qty <= 0) return;
-                  
-                  ref.read(userPortfolioProvider.notifier).tradeInvestment(
-                    userId: 'USER_1',
-                    assetId: inv.assetId,
-                    assetName: inv.name,
-                    category: inv.category,
-                    quantity: qty,
-                    price: currentPrice,
-                    side: side,
-                  );
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Order executed: ${side.toUpperCase()} ${qty.toStringAsFixed(2)} ${inv.name}'),
-                      backgroundColor: side == 'buy' ? AppColors.primary : Colors.redAccent,
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: side == 'buy' ? AppColors.primary : Colors.redAccent,
-                  foregroundColor: Colors.black,
-                  padding: const EdgeInsets.symmetric(vertical: 20),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                ),
-                child: Text('CONFIRM ${side.toUpperCase()}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: (isDark ? Colors.white : Colors.black).withOpacity(0.1))),
+                focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.redAccent)),
               ),
             ),
             const SizedBox(height: 30),
+            SizedBox(
+              width: double.infinity,
+              height: 54,
+              child: ElevatedButton(
+                onPressed: () {
+                  final qty = double.tryParse(qtyController.text) ?? 0;
+                  if (qty <= 0) return;
+                  ref.read(userPortfolioProvider.notifier).tradeInvestment(
+                    assetId: inv.assetId, assetName: inv.name, category: inv.category,
+                    quantity: qty, price: price, side: 'sell',
+                  );
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Sold ${qty.toStringAsFixed(2)} units of ${inv.name}'), backgroundColor: Colors.redAccent));
+                },
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
+                child: const Text('CONFIRM SELL', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              ),
+            ),
           ],
         ),
       ),

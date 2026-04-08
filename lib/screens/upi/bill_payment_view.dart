@@ -39,20 +39,25 @@ class _BillPaymentViewState extends ConsumerState<BillPaymentView> {
     final title = widget.category == BillCategory.dth ? 'DTH Recharge' : 'Electricity Bill';
     final label = widget.category == BillCategory.dth ? 'Subscriber ID' : 'Consumer Number';
     final icon = widget.category == BillCategory.dth ? Icons.satellite_alt_outlined : Icons.lightbulb_outline;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Theme.of(context).colorScheme.primary;
+    final textPrimary = isDark ? Colors.white : LightColors.textPrimary;
+    final textSecondary = isDark ? Colors.white70 : LightColors.textSecondary;
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text(title, style: const TextStyle(color: Colors.white)),
-        backgroundColor: Colors.black,
-        iconTheme: const IconThemeData(color: Colors.white),
+        title: Text(title, style: TextStyle(color: textPrimary)),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        elevation: 0,
+        iconTheme: IconThemeData(color: textPrimary),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Select Biller', style: TextStyle(color: Colors.white, fontSize: 16)),
+            Text('Select Biller', style: TextStyle(color: textPrimary, fontSize: 16)),
             const SizedBox(height: 12),
             SizedBox(
               height: 50,
@@ -68,15 +73,15 @@ class _BillPaymentViewState extends ConsumerState<BillPaymentView> {
                       margin: const EdgeInsets.only(right: 12),
                       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                       decoration: BoxDecoration(
-                        color: isSelected ? AppColors.primary.withOpacity(0.2) : Colors.transparent,
-                        border: Border.all(color: isSelected ? AppColors.primary : Colors.grey.shade800),
+                        color: isSelected ? primaryColor.withOpacity(0.1) : (isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+                        border: Border.all(color: isSelected ? primaryColor : (isDark ? Colors.white12 : Colors.black12)),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Center(
                         child: Text(
                           biller,
                           style: TextStyle(
-                            color: isSelected ? AppColors.primary : Colors.white70,
+                            color: isSelected ? primaryColor : textSecondary,
                             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                           ),
                         ),
@@ -89,32 +94,32 @@ class _BillPaymentViewState extends ConsumerState<BillPaymentView> {
             const SizedBox(height: 32),
             TextField(
               controller: _idController,
-              style: const TextStyle(color: Colors.white, fontSize: 18),
+              style: TextStyle(color: textPrimary, fontSize: 18),
               decoration: InputDecoration(
                 labelText: label,
-                labelStyle: const TextStyle(color: Colors.white70),
-                prefixIcon: Icon(icon, color: AppColors.primary),
+                labelStyle: TextStyle(color: textSecondary),
+                prefixIcon: Icon(icon, color: primaryColor),
                 filled: true,
-                fillColor: Colors.grey.shade900,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.primary)),
+                fillColor: Theme.of(context).cardTheme.color,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: (isDark ? Colors.transparent : Colors.black.withOpacity(0.05)))),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: primaryColor)),
               ),
             ),
             const SizedBox(height: 20),
             TextField(
               controller: _amountController,
               keyboardType: TextInputType.number,
-              style: const TextStyle(color: Colors.white, fontSize: 18),
+              style: TextStyle(color: textPrimary, fontSize: 18),
               decoration: InputDecoration(
                 labelText: 'Amount',
                 prefixText: '₹ ',
-                prefixStyle: const TextStyle(color: AppColors.primary, fontSize: 18),
-                labelStyle: const TextStyle(color: Colors.white70),
-                prefixIcon: const Icon(Icons.currency_rupee, color: AppColors.primary),
+                prefixStyle: TextStyle(color: primaryColor, fontSize: 18),
+                labelStyle: TextStyle(color: textSecondary),
+                prefixIcon: Icon(Icons.currency_rupee, color: primaryColor),
                 filled: true,
-                fillColor: Colors.grey.shade900,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.primary)),
+                fillColor: Theme.of(context).cardTheme.color,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: (isDark ? Colors.transparent : Colors.black.withOpacity(0.05)))),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: primaryColor)),
               ),
             ),
             const SizedBox(height: 48),
@@ -124,8 +129,8 @@ class _BillPaymentViewState extends ConsumerState<BillPaymentView> {
               child: ElevatedButton(
                 onPressed: _handlePayment,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.black,
+                  backgroundColor: primaryColor,
+                  foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 ),
                 child: const Text('Proceed to Pay', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),

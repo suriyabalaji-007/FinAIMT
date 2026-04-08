@@ -7,6 +7,8 @@ const { sequelize, User } = require('./models');
 const { transferFunds } = require('./services/paymentService');
 const verifyTransactionPin = require('./middleware/pinAuth');
 const stripeRoutes = require('./routes/stripe');
+const authRoutes = require('./routes/auth');
+const { protect } = require('./middleware/authMiddleware');
 const { init: initSocket, sendNotification } = require('./socket/notificationHandler');
 
 const app = express();
@@ -34,7 +36,10 @@ const marketPrices = {
     'HDFC_FUND': 542000,
     'GOLD': 115000,
     'PPF': 1620000,
-    'LIC': 150000
+    'LIC': 150000,
+    'NIFTY_ETF': 24500,
+    'STAR_HEALTH': 18000,
+    'PO_MIS': 100000
 };
 
 setInterval(() => {
@@ -74,10 +79,12 @@ setInterval(async () => {
 // --- ROUTES ---
 
 app.use('/api/stripe', stripeRoutes);
+app.use('/api/auth', authRoutes);
 
 // Investment Routes
-app.post('/api/investments/trade', async (req, res) => {
-    const { userId, assetId, assetName, category, quantity, price, side } = req.body;
+app.post('/api/investments/trade', protect, async (req, res) => {
+    const { assetId, assetName, category, quantity, price, side } = req.body;
+    const userId = req.user.id;
     try {
         const result = await tradeAsset(userId, assetId, assetName, category, quantity, price, side);
         const portfolio = await Investment.findAll({ where: { userId } });
@@ -88,9 +95,19 @@ app.post('/api/investments/trade', async (req, res) => {
     }
 });
 
+app.get('/api/investments', protect, async (req, res) => {
+    try {
+        const portfolio = await Investment.findAll({ where: { userId: req.user.id } });
+        res.json(portfolio);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Finance (Loans & Metrics) Routes
-app.post('/api/finance/pay-emi', async (req, res) => {
-    const { userId, loanId } = req.body;
+app.post('/api/finance/pay-emi', protect, async (req, res) => {
+    const { loanId } = req.body;
+    const userId = req.user.id;
     try {
         const result = await payEMI(userId, loanId);
         const updatedLoans = await Loan.findAll({ where: { userId } });
@@ -101,38 +118,26 @@ app.post('/api/finance/pay-emi', async (req, res) => {
     }
 });
 
-app.get('/api/finance/loans/:userId', async (req, res) => {
+app.get('/api/finance/loans', protect, async (req, res) => {
     try {
-        const loans = await Loan.findAll({ where: { userId: req.params.userId } });
+        const loans = await Loan.findAll({ where: { userId: req.user.id } });
         res.json(loans);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
 
-app.get('/api/finance/metrics/:userId', async (req, res) => {
+app.get('/api/finance/metrics', protect, async (req, res) => {
     try {
-        const metrics = await FinancialMetric.findAll({ where: { userId: req.params.userId } });
+        const metrics = await FinancialMetric.findAll({ where: { userId: req.user.id } });
         res.json(metrics);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
 
-// 1. Register / Create User (with hashed PIN)
-app.post('/api/users', async (req, res) => {
-    const { name, phone, email, transactionPin } = req.body;
-    try {
-        const hashedPin = await bcrypt.hash(transactionPin.toString(), 10);
-        const user = await User.create({ name, phone, email, transactionPin: hashedPin });
-        res.status(201).json({ id: user.id, name: user.name, balance: user.balance });
-    } catch (error) {
-        res.status(400).json({ error: error.message });
-    }
-});
-
-// 2. Transfer Funds (Protected by PIN)
-app.post('/api/transfer', verifyTransactionPin, async (req, res) => {
+// Transfer Funds (Protected by session AND PIN)
+app.post('/api/transfer', protect, verifyTransactionPin, async (req, res) => {
     const { receiverId, amount } = req.body;
     const senderId = req.user.id;
 
@@ -153,11 +158,11 @@ app.post('/api/transfer', verifyTransactionPin, async (req, res) => {
     }
 });
 
-// 3. Get User Profile & Balance
-app.get('/api/users/:id', async (req, res) => {
+// Get User Profile (Protected - replaces public ID based route)
+app.get('/api/users/profile', protect, async (req, res) => {
     try {
-        const user = await User.findByPk(req.params.id, {
-            attributes: ['id', 'name', 'phone', 'email', 'balance', 'isKycVerified']
+        const user = await User.findByPk(req.user.id, {
+            attributes: ['id', 'name', 'phone', 'email', 'balance', 'isKycVerified', 'isEmailVerified']
         });
         if (!user) return res.status(404).json({ error: 'User not found' });
         res.json(user);
@@ -169,7 +174,7 @@ app.get('/api/users/:id', async (req, res) => {
 // --- SERVER INIT ---
 const PORT = process.env.PORT || 3000;
 
-sequelize.sync({ alter: true }).then(() => {
+sequelize.sync().then(() => {
     console.log('Database synced');
     server.listen(PORT, () => {
         console.log(`Server running on port ${PORT}`);

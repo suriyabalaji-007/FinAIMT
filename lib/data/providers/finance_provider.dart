@@ -1,8 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fin_aimt/data/models/finance_models.dart';
+import 'package:fin_aimt/data/providers/auth_provider.dart';
 import 'package:fin_aimt/data/repositories/mock_repository.dart';
 import 'package:fin_aimt/data/providers/metrics_provider.dart';
-import 'package:fin_aimt/core/services/gemini_service.dart';
 
 // Current Tab Provider (Riverpod v3 compatible)
 final currentTabProvider =
@@ -54,13 +54,43 @@ final financeDataProvider = NotifierProvider<FinanceNotifier, FinanceState>(Fina
 class FinanceNotifier extends Notifier<FinanceState> {
   @override
   FinanceState build() {
+    final authState = ref.watch(authProvider);
+    final user = authState.user;
+
+    // Use live user data if available, otherwise fallback to mock for parts not on backend yet
+    final profile = user != null
+        ? UserProfile(
+            name: user['name'] ?? 'User',
+            email: user['email'] ?? '',
+            phone: user['phone'] ?? '',
+            panNumber: 'ABCDE1234F', // Mocked as not on backend yet
+            aadhaarNumber: '**** **** 1234', // Mocked as not on backend yet
+            riskProfile: 'Moderate',
+            isKycVerified: user['isKycVerified'] ?? false,
+          )
+        : MockRepository.getUserProfile();
+
+    final accounts = MockRepository.getAccounts().map((acc) {
+      if (user != null && acc == MockRepository.getAccounts().first) {
+        // Mocking the primary account with the real backend balance (paise to rupees)
+        return BankAccount(
+          bankName: acc.bankName,
+          accountNumber: acc.accountNumber,
+          balance: (user['balance'] ?? 0) / 100.0, 
+          logoUrl: acc.logoUrl,
+          isUpiEnabled: acc.isUpiEnabled,
+        );
+      }
+      return acc;
+    }).toList();
+
     return FinanceState(
-      accounts: MockRepository.getAccounts(),
+      accounts: accounts,
       transactions: MockRepository.getRecentTransactions(),
       creditCards: MockRepository.getCreditCards(),
       loans: MockRepository.getLoans(),
       insights: MockRepository.getInsights(),
-      userProfile: MockRepository.getUserProfile(),
+      userProfile: profile,
     );
   }
 

@@ -47,17 +47,22 @@ class _MobileRechargeViewState extends ConsumerState<MobileRechargeView> {
 
   @override
   Widget build(BuildContext context) {
-    // Filter plans based on selected operator, or show all if none selected
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Theme.of(context).colorScheme.primary;
+    final textPrimary = isDark ? Colors.white : LightColors.textPrimary;
+    final textSecondary = isDark ? Colors.white70 : LightColors.textSecondary;
+
     final displayPlans = _selectedOperator == null 
         ? _mockPlans 
         : _mockPlans.where((p) => p['operator'] == _selectedOperator).toList();
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('Mobile Recharge', style: TextStyle(color: Colors.white)),
-        backgroundColor: Colors.black,
-        iconTheme: const IconThemeData(color: Colors.white),
+        title: Text('Mobile Recharge', style: TextStyle(color: textPrimary)),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        elevation: 0,
+        iconTheme: IconThemeData(color: textPrimary),
       ),
       body: CustomScrollView(
         slivers: [
@@ -67,27 +72,27 @@ class _MobileRechargeViewState extends ConsumerState<MobileRechargeView> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Enter amount or mobile number', style: TextStyle(color: Colors.white, fontSize: 16)),
+                  Text('Enter amount or mobile number', style: TextStyle(color: textPrimary, fontSize: 16)),
                   const SizedBox(height: 12),
                   TextField(
                     controller: _phoneController,
                     keyboardType: TextInputType.phone,
-                    style: const TextStyle(color: Colors.white, fontSize: 20),
+                    style: TextStyle(color: textPrimary, fontSize: 20),
                     decoration: InputDecoration(
                       hintText: '10-digit mobile number',
-                      hintStyle: const TextStyle(color: Colors.white30),
-                      prefixIcon: const Icon(Icons.phone_android, color: AppColors.primary),
+                      hintStyle: TextStyle(color: textSecondary.withOpacity(0.5)),
+                      prefixIcon: Icon(Icons.phone_android, color: primaryColor),
                       filled: true,
-                      fillColor: Colors.grey.shade900,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.primary)),
+                      fillColor: Theme.of(context).cardTheme.color,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: (isDark ? Colors.transparent : Colors.black.withOpacity(0.05)))),
+                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: primaryColor)),
                     ),
                     onChanged: (val) {
                       if (val.length >= 2 && mounted) {
-                        // Auto-detect mock operator based on prefix
                         setState(() {
-                          if (val.startsWith('9')) _selectedOperator = 'Airtel';
-                          else if (val.startsWith('8')) _selectedOperator = 'Jio';
+                          if (val.startsWith('9')) {
+                            _selectedOperator = 'Airtel';
+                          } else if (val.startsWith('8')) _selectedOperator = 'Jio';
                           else if (val.startsWith('7')) _selectedOperator = 'Vi';
                           else _selectedOperator = null;
                         });
@@ -96,7 +101,7 @@ class _MobileRechargeViewState extends ConsumerState<MobileRechargeView> {
                   ),
                   const SizedBox(height: 24),
                   
-                  const Text('Select Operator', style: TextStyle(color: Colors.white, fontSize: 16)),
+                  Text('Select Operator', style: TextStyle(color: textPrimary, fontSize: 16)),
                   const SizedBox(height: 12),
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
@@ -106,7 +111,7 @@ class _MobileRechargeViewState extends ConsumerState<MobileRechargeView> {
                   ),
                   const SizedBox(height: 24),
                   
-                  const Text('Recommended Plans', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                  Text('Recommended Plans', style: TextStyle(color: textPrimary, fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 16),
                 ],
               ),
@@ -124,6 +129,8 @@ class _MobileRechargeViewState extends ConsumerState<MobileRechargeView> {
   }
 
   Widget _buildOperatorChip(String operator) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Theme.of(context).colorScheme.primary;
     final isSelected = _selectedOperator == operator;
     return GestureDetector(
       onTap: () => setState(() => _selectedOperator = operator),
@@ -131,14 +138,14 @@ class _MobileRechargeViewState extends ConsumerState<MobileRechargeView> {
         margin: const EdgeInsets.only(right: 12),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary.withOpacity(0.2) : Colors.transparent,
-          border: Border.all(color: isSelected ? AppColors.primary : Colors.grey.shade800),
+          color: isSelected ? primaryColor.withOpacity(0.15) : (isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+          border: Border.all(color: isSelected ? primaryColor : (isDark ? Colors.white12 : Colors.black12)),
           borderRadius: BorderRadius.circular(20),
         ),
         child: Text(
           operator,
           style: TextStyle(
-            color: isSelected ? AppColors.primary : Colors.white70,
+            color: isSelected ? primaryColor : (isDark ? Colors.white70 : LightColors.textSecondary),
             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
           ),
         ),
@@ -147,13 +154,18 @@ class _MobileRechargeViewState extends ConsumerState<MobileRechargeView> {
   }
 
   Widget _buildPlanCard(Map<String, dynamic> plan) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Theme.of(context).colorScheme.primary;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.grey.shade900,
+        color: Theme.of(context).cardTheme.color,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade800),
+        border: Border.all(color: (isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05))),
+        boxShadow: isDark ? [] : [
+          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -165,18 +177,18 @@ class _MobileRechargeViewState extends ConsumerState<MobileRechargeView> {
                 children: [
                   Container(
                     padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(8)),
-                    child: const Icon(Icons.flash_on, color: AppColors.primary, size: 20),
+                    decoration: BoxDecoration(color: primaryColor.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                    child: Icon(Icons.flash_on, color: primaryColor, size: 20),
                   ),
                   const SizedBox(width: 12),
-                  Text('₹${plan['price']}', style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                  Text('₹${plan['price']}', style: TextStyle(color: isDark ? Colors.white : LightColors.textPrimary, fontSize: 24, fontWeight: FontWeight.bold)),
                 ],
               ),
               ElevatedButton(
                 onPressed: () => _handleRecharge(plan),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.black,
+                  backgroundColor: primaryColor,
+                  foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                 ),
                 child: const Text('Recharge'),
@@ -193,21 +205,22 @@ class _MobileRechargeViewState extends ConsumerState<MobileRechargeView> {
             ],
           ),
           const SizedBox(height: 12),
-          const Divider(color: Colors.white10),
+          Divider(color: (isDark ? Colors.white10 : Colors.black12)),
           const SizedBox(height: 8),
-          Text(plan['desc'], style: const TextStyle(color: Colors.white60, fontSize: 13)),
+          Text(plan['desc'], style: TextStyle(color: isDark ? Colors.white60 : LightColors.textSecondary, fontSize: 13)),
         ],
       ),
     );
   }
 
   Widget _buildPlanDetail(String label, String value) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(color: Colors.white30, fontSize: 11, letterSpacing: 1)),
+        Text(label, style: TextStyle(color: isDark ? Colors.white30 : LightColors.textHint, fontSize: 11, letterSpacing: 1)),
         const SizedBox(height: 4),
-        Text(value, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500)),
+        Text(value, style: TextStyle(color: isDark ? Colors.white : LightColors.textPrimary, fontSize: 14, fontWeight: FontWeight.w500)),
       ],
     );
   }
@@ -228,7 +241,6 @@ class _MobileRechargeViewState extends ConsumerState<MobileRechargeView> {
           if (pin == '0000') throw Exception('Incorrect PIN');
           
           if (context.mounted) {
-            // Process Recharge
             final amount = (plan['price'] as int).toDouble();
             ref.read(financeDataProvider.notifier).addTransaction(
               Transaction(
@@ -246,10 +258,10 @@ class _MobileRechargeViewState extends ConsumerState<MobileRechargeView> {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text('✅ Recharge of ₹${plan['price']} successful for $phone'),
-                backgroundColor: AppColors.primary,
+                backgroundColor: Theme.of(context).colorScheme.primary,
               ),
             );
-            Navigator.pop(context); // Go back to UPI Hub
+            Navigator.pop(context); 
           }
         },
       ),

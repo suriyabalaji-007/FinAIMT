@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:fin_aimt/core/theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fin_aimt/data/providers/finance_provider.dart';
 import 'package:fin_aimt/screens/home/home_dashboard_view.dart';
@@ -45,15 +44,28 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final selectedIndex = ref.watch(currentTabProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Theme.of(context).colorScheme.primary;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Stack(
         children: [
-          _widgetOptions[selectedIndex],
+          // Primary Navigation Stack
+          IndexedStack(
+            index: selectedIndex > 4 ? 0 : selectedIndex,
+            children: _widgetOptions.sublist(0, 5),
+          ),
+          
+          // Full-screen Overlays for Header Actions
+          if (selectedIndex == 5) 
+            const Positioned.fill(child: ProfileView()),
+          if (selectedIndex == 6) 
+            const Positioned.fill(child: AIBotView()),
+          
           const PaymentNotificationOverlay(),
 
-          // Custom Floating Bottom Navigation
+          // Custom Floating Bottom Navigation (Monifi Style)
           Positioned(
             left: 16,
             right: 16,
@@ -62,25 +74,26 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               height: 80,
               padding: const EdgeInsets.symmetric(horizontal: 6),
               decoration: BoxDecoration(
-                color: const Color(0xFF1A1D1E).withOpacity(0.95),
-                borderRadius: BorderRadius.circular(34),
-                border: Border.all(color: Colors.white10),
+                color: isDark ? const Color(0xFF1A1D1E).withOpacity(0.95) : Colors.white.withOpacity(0.98),
+                borderRadius: BorderRadius.circular(30), // Smaller, cleaner radius like image
+                border: Border.all(color: (isDark ? Colors.white : Colors.black).withOpacity(0.05)),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.4),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
+                    color: Colors.black.withOpacity(isDark ? 0.4 : 0.05),
+                    blurRadius: 15,
+                    offset: const Offset(0, 5),
                   ),
                 ],
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _buildNavItem(0, Icons.home_rounded, 'Home', selectedIndex),
-                  _buildNavItem(1, Icons.account_balance, 'Banking', selectedIndex),
-                  _buildNavItem(2, Icons.show_chart_rounded, 'Invest', selectedIndex),
-                  _buildNavItem(3, Icons.account_balance_wallet_outlined, 'Loans', selectedIndex),
-                  _buildNavItem(4, Icons.receipt_long_outlined, 'Tax', selectedIndex),
+                  _buildNavItem(0, Icons.home_rounded, 'Home', selectedIndex, isDark, primaryColor),
+                  _buildNavItem(1, Icons.account_balance, 'Banking', selectedIndex, isDark, primaryColor),
+                  _buildNavItem(2, Icons.show_chart_rounded, 'Invest', selectedIndex, isDark, primaryColor),
+                  _buildNavItem(3, Icons.account_balance_wallet_outlined, 'Loans', selectedIndex, isDark, primaryColor),
+                  _buildNavItem(4, Icons.receipt_long_outlined, 'Tax', selectedIndex, isDark, primaryColor),
+                  _buildNavItem(6, Icons.auto_awesome, 'AI Bot', selectedIndex, isDark, primaryColor),
                 ],
               ),
             ),
@@ -90,32 +103,33 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  Widget _buildNavItem(int viewIndex, IconData icon, String label, int selectedIndex) {
+  Widget _buildNavItem(int viewIndex, IconData icon, String label, int selectedIndex, bool isDark, Color primaryColor) {
     final isSelected = selectedIndex == viewIndex;
+    final activeColor = primaryColor;
+    final inactiveColor = isDark ? const Color(0xFF666666) : const Color(0xFFB0B0B0);
 
     return InkWell(
       onTap: () => ref.read(currentTabProvider.notifier).setTab(viewIndex),
-      borderRadius: BorderRadius.circular(16),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: isSelected ? BoxDecoration(
-          color: AppColors.primary.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(16),
-        ) : null,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: isSelected ? AppColors.primary : AppColors.textHint, size: 22),
-            const SizedBox(height: 3),
-            Text(label, 
-              style: TextStyle(
-                color: isSelected ? AppColors.primary : AppColors.textHint, 
-                fontSize: 10,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-              )),
-          ],
-        ),
+      borderRadius: BorderRadius.circular(20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: isSelected ? activeColor : inactiveColor, size: 24),
+          const SizedBox(height: 5),
+          Text(label, 
+            style: TextStyle(
+              color: isSelected ? activeColor : inactiveColor, 
+              fontSize: 10,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+            )),
+          if (isSelected && !isDark) // Visual dot indicator like modern apps
+            Container(
+              margin: const EdgeInsets.only(top: 2),
+              width: 4,
+              height: 4,
+              decoration: BoxDecoration(color: activeColor, shape: BoxShape.circle),
+            ),
+        ],
       ),
     );
   }

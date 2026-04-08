@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:fin_aimt/screens/investments/insurance_plans_view.dart';
+import 'package:fin_aimt/screens/investments/post_office_schemes_view.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fin_aimt/core/theme.dart';
 import 'package:fin_aimt/data/providers/market_provider.dart';
@@ -24,7 +26,7 @@ class _MarketDashboardViewState extends ConsumerState<MarketDashboardView> with 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
   }
 
   @override
@@ -38,26 +40,29 @@ class _MarketDashboardViewState extends ConsumerState<MarketDashboardView> with 
   Widget build(BuildContext context) {
     final marketData = ref.watch(marketDataProvider);
     final currencyFormat = NumberFormat.currency(locale: 'en_IN', symbol: '₹');
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Theme.of(context).colorScheme.primary;
+    final textPrimary = isDark ? Colors.white : LightColors.textPrimary;
+    final textSecondary = isDark ? Colors.white54 : LightColors.textSecondary;
     
     // Extract Indices
     final nifty = marketData['NIFTY50'];
     final sensex = marketData['SENSEX'];
     
-    // Categorize
-    final etfSymbols = MockRepository.getETFs().map((e) => e.symbol).toSet();
-    final posIds = MockRepository.getPostOfficeSchemes().map((e) => e.id).toSet();
-
     final stocks = marketData.values.where((data) => 
-      data.symbol != 'NIFTY50' && 
-      data.symbol != 'SENSEX' &&
-      !etfSymbols.contains(data.symbol) &&
-      !posIds.contains(data.symbol) &&
+      data.category == 'Stocks' &&
       (data.symbol.toLowerCase().contains(_searchQuery.toLowerCase()) || 
        data.name.toLowerCase().contains(_searchQuery.toLowerCase()))
     ).toList();
 
     final etfs = marketData.values.where((data) => 
-      etfSymbols.contains(data.symbol) &&
+      data.category == 'ETFs' &&
+      (data.symbol.toLowerCase().contains(_searchQuery.toLowerCase()) || 
+       data.name.toLowerCase().contains(_searchQuery.toLowerCase()))
+    ).toList();
+
+    final mutualFunds = marketData.values.where((data) => 
+      data.category == 'Mutual Funds' &&
       (data.symbol.toLowerCase().contains(_searchQuery.toLowerCase()) || 
        data.name.toLowerCase().contains(_searchQuery.toLowerCase()))
     ).toList();
@@ -72,140 +77,147 @@ class _MarketDashboardViewState extends ConsumerState<MarketDashboardView> with 
       p.provider.toLowerCase().contains(_searchQuery.toLowerCase())
     ).toList();
 
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Sticky Indices Header (Kite Style)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-              decoration: BoxDecoration(
-                border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.05))),
-              ),
-              child: Row(
-                children: [
-                  if (nifty != null) Expanded(child: _buildIndexCard('NIFTY 50', nifty, currencyFormat)),
-                  const SizedBox(width: 15),
-                  if (sensex != null) Expanded(child: _buildIndexCard('SENSEX', sensex, currencyFormat)),
-                ],
-              ),
+    return Container(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: Column(
+        children: [
+          // Sticky Indices Header (Kite Style)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+            decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: (isDark ? Colors.white : Colors.black).withOpacity(0.05))),
             ),
-            
-            // Search Bar
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
-              child: TextField(
-                controller: _searchController,
-                onChanged: (val) => setState(() => _searchQuery = val),
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  hintText: 'Search (Reliance, Nifty Bees, Health...)',
-                  hintStyle: const TextStyle(color: Colors.white24),
-                  prefixIcon: const Icon(Icons.search, color: Colors.white24),
-                  filled: true,
-                  fillColor: AppColors.surface,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(vertical: 0),
-                ),
-              ),
-            ),
-
-            // Category TabBar
-            TabBar(
-              controller: _tabController,
-              isScrollable: true,
-              labelColor: AppColors.primary,
-              unselectedLabelColor: Colors.white54,
-              indicatorColor: AppColors.primary,
-              indicatorWeight: 3,
-              labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-              tabs: const [
-                Tab(text: 'STOCKS'),
-                Tab(text: 'ETFS'),
-                Tab(text: 'POST OFFICE'),
-                Tab(text: 'INSURANCE'),
+            child: Row(
+              children: [
+                if (nifty != null) Expanded(child: _buildIndexCard(context, 'NIFTY 50', nifty, currencyFormat)),
+                const SizedBox(width: 15),
+                if (sensex != null) Expanded(child: _buildIndexCard(context, 'SENSEX', sensex, currencyFormat)),
               ],
             ),
-            
-            // Market List (TabBarView)
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  _buildMarketList(stocks, currencyFormat),
-                  _buildMarketList(etfs, currencyFormat),
-                  _buildPosList(posSchemes, currencyFormat),
-                  _buildInsuranceList(insuranceProducts, currencyFormat),
-                ],
+          ),
+          
+          // Search Bar
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
+            child: TextField(
+              controller: _searchController,
+              onChanged: (val) => setState(() => _searchQuery = val),
+              style: TextStyle(color: textPrimary),
+              decoration: InputDecoration(
+                hintText: 'Search (Reliance, Nifty Bees, Health...)',
+                hintStyle: TextStyle(color: textSecondary.withOpacity(0.5)),
+                prefixIcon: Icon(Icons.search, color: textSecondary.withOpacity(0.5)),
+                filled: true,
+                fillColor: Theme.of(context).cardTheme.color,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: isDark ? BorderSide.none : BorderSide(color: Colors.black.withOpacity(0.05)),
+                ),
+                contentPadding: const EdgeInsets.symmetric(vertical: 0),
               ),
             ),
-          ],
-        ),
+          ),
+
+          // Category TabBar
+          TabBar(
+            controller: _tabController,
+            isScrollable: true,
+            labelColor: primaryColor,
+            unselectedLabelColor: textSecondary,
+            indicatorColor: primaryColor,
+            indicatorWeight: 3,
+            labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+            tabs: const [
+              Tab(text: 'STOCKS'),
+              Tab(text: 'ETFS'),
+              Tab(text: 'MUTUAL FUNDS'),
+              Tab(text: 'POST OFFICE'),
+              Tab(text: 'INSURANCE'),
+            ],
+          ),
+          
+          // Market List (TabBarView)
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _buildMarketList(context, stocks, currencyFormat),
+                _buildMarketList(context, etfs, currencyFormat),
+                _buildMarketList(context, mutualFunds, currencyFormat),
+                _buildPosList(context, posSchemes, currencyFormat),
+                _buildInsuranceList(context, insuranceProducts, currencyFormat),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildMarketList(List<MarketData> items, NumberFormat format) {
-    if (items.isEmpty) return _buildEmptyState();
+  Widget _buildMarketList(BuildContext context, List<MarketData> items, NumberFormat format) {
+    if (items.isEmpty) return _buildEmptyState(context);
     return ListView.builder(
       padding: const EdgeInsets.only(bottom: 20),
       itemCount: items.length,
-      itemBuilder: (context, index) => _buildMarketRow(items[index], format),
+      itemBuilder: (context, index) => _buildMarketRow(context, items[index], format),
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(BuildContext context) {
     return Center(
-      child: Text('No results found', style: TextStyle(color: Colors.white.withOpacity(0.2))),
+      child: Text('No results found', style: TextStyle(color: (Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black).withOpacity(0.2))),
     );
   }
 
-  Widget _buildPosList(List<PostOfficeScheme> schemes, NumberFormat format) {
-    if (schemes.isEmpty) return _buildEmptyState();
+  Widget _buildPosList(BuildContext context, List<PostOfficeScheme> schemes, NumberFormat format) {
+    if (schemes.isEmpty) return _buildEmptyState(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Theme.of(context).colorScheme.primary;
+    final textSecondary = isDark ? Colors.white54 : LightColors.textSecondary;
+
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       itemCount: schemes.length,
       itemBuilder: (context, index) {
         final scheme = schemes[index];
         return InkWell(
-          onTap: () => _showPosDepositDialog(scheme, format),
+          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PostOfficeSchemesView())),
           child: Container(
             margin: const EdgeInsets.only(bottom: 12),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppColors.surface,
+              color: Theme.of(context).cardTheme.color,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.white.withOpacity(0.05)),
+              border: Border.all(color: (isDark ? Colors.white : Colors.black).withOpacity(0.05)),
+              boxShadow: isDark ? [] : [
+                BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))
+              ],
             ),
             child: Row(
               children: [
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.1),
+                    color: primaryColor.withOpacity(0.1),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.account_balance, color: AppColors.primary, size: 20),
+                  child: Icon(Icons.account_balance, color: primaryColor, size: 20),
                 ),
                 const SizedBox(width: 15),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(scheme.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                      Text('${scheme.type} • ${scheme.tenureYears} Years', style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                      Text(scheme.name, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? Colors.white : LightColors.textPrimary)),
+                      Text('${scheme.type} • ${scheme.tenureYears} Years', style: TextStyle(color: textSecondary, fontSize: 12)),
                     ],
                   ),
                 ),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text('${scheme.interestRate}%', style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 16)),
-                    const Text('Interest', style: TextStyle(color: Colors.white24, fontSize: 10)),
+                    Text('${scheme.interestRate}%', style: TextStyle(color: primaryColor, fontWeight: FontWeight.bold, fontSize: 16)),
+                    Text('Interest', style: TextStyle(color: textSecondary.withOpacity(0.5), fontSize: 10)),
                   ],
                 ),
               ],
@@ -218,41 +230,46 @@ class _MarketDashboardViewState extends ConsumerState<MarketDashboardView> with 
 
   void _showPosDepositDialog(PostOfficeScheme scheme, NumberFormat format) {
     final amountController = TextEditingController(text: scheme.minInvestment.toString());
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Theme.of(context).colorScheme.primary;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
         padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 30,
           left: 25,
           right: 25,
           top: 25,
         ),
-        decoration: const BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardTheme.color,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Open Post Office Scheme', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            Text('Open Post Office Scheme', 
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: isDark ? Colors.white : LightColors.textPrimary)
+            ),
             const SizedBox(height: 8),
-            Text(scheme.name, style: const TextStyle(color: Colors.white70)),
+            Text(scheme.name, style: TextStyle(color: isDark ? Colors.white70 : LightColors.textSecondary)),
             const SizedBox(height: 30),
             TextField(
               controller: amountController,
               autofocus: true,
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: isDark ? Colors.white : LightColors.textPrimary),
               keyboardType: TextInputType.number,
               decoration: InputDecoration(
                 labelText: 'Investment Amount',
-                labelStyle: const TextStyle(color: Colors.white30),
+                labelStyle: TextStyle(color: isDark ? Colors.white30 : LightColors.textHint),
                 prefixText: '₹ ',
-                prefixStyle: const TextStyle(color: Colors.white, fontSize: 24),
-                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white.withOpacity(0.1))),
-                focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: AppColors.primary)),
+                prefixStyle: TextStyle(color: isDark ? Colors.white : LightColors.textPrimary, fontSize: 24),
+                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: (isDark ? Colors.white : Colors.black).withOpacity(0.1))),
+                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: primaryColor)),
               ),
             ),
             const SizedBox(height: 40),
@@ -269,10 +286,9 @@ class _MarketDashboardViewState extends ConsumerState<MarketDashboardView> with 
                   }
                   
                   ref.read(userPortfolioProvider.notifier).tradeInvestment(
-                    userId: 'USER_1',
                     assetId: scheme.id,
                     assetName: scheme.name,
-                    category: 'Govt Schemes',
+                    category: 'Post Office Schemes',
                     quantity: 1,
                     price: amount,
                     side: 'buy',
@@ -281,28 +297,31 @@ class _MarketDashboardViewState extends ConsumerState<MarketDashboardView> with 
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text('Successfully opened ${scheme.name} with ${format.format(amount)}'),
-                      backgroundColor: AppColors.primary,
+                      backgroundColor: primaryColor,
                     ),
                   );
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.black,
+                  backgroundColor: primaryColor,
+                  foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 20),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 ),
                 child: const Text('CONFIRM DEPOSIT', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               ),
             ),
-            const SizedBox(height: 30),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildInsuranceList(List<InsuranceProduct> products, NumberFormat format) {
-    if (products.isEmpty) return _buildEmptyState();
+  Widget _buildInsuranceList(BuildContext context, List<InsuranceProduct> products, NumberFormat format) {
+    if (products.isEmpty) return _buildEmptyState(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Theme.of(context).colorScheme.primary;
+    final textSecondary = isDark ? Colors.white54 : LightColors.textSecondary;
+
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       itemCount: products.length,
@@ -312,9 +331,9 @@ class _MarketDashboardViewState extends ConsumerState<MarketDashboardView> with 
           margin: const EdgeInsets.only(bottom: 15),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: AppColors.surface,
+            color: Theme.of(context).cardTheme.color,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.white.withOpacity(0.05)),
+            border: Border.all(color: (isDark ? Colors.white : Colors.black).withOpacity(0.05)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -323,28 +342,28 @@ class _MarketDashboardViewState extends ConsumerState<MarketDashboardView> with 
                 children: [
                   CircleAvatar(
                     radius: 18,
-                    backgroundColor: Colors.white10,
-                    child: Text(product.provider[0], style: const TextStyle(color: Colors.white)),
+                    backgroundColor: (isDark ? Colors.white : Colors.black).withOpacity(0.05),
+                    child: Text(product.provider[0], style: TextStyle(color: isDark ? Colors.white : LightColors.textPrimary)),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(product.planName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                        Text(product.provider, style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                        Text(product.planName, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: isDark ? Colors.white : LightColors.textPrimary)),
+                        Text(product.provider, style: TextStyle(color: textSecondary, fontSize: 12)),
                       ],
                     ),
                   ),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.1),
+                      color: primaryColor.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
                       product.type,
-                      style: const TextStyle(color: AppColors.primary, fontSize: 10, fontWeight: FontWeight.bold),
+                      style: TextStyle(color: primaryColor, fontSize: 10, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ],
@@ -356,29 +375,29 @@ class _MarketDashboardViewState extends ConsumerState<MarketDashboardView> with 
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Sum Insured', style: TextStyle(color: Colors.white24, fontSize: 11)),
-                      Text(format.format(product.sumInsured), style: const TextStyle(fontWeight: FontWeight.bold)),
+                      Text('Sum Insured', style: TextStyle(color: textSecondary, fontSize: 11)),
+                      Text(format.format(product.sumInsured), style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : LightColors.textPrimary)),
                     ],
                   ),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      const Text('Annual Premium', style: TextStyle(color: Colors.white24, fontSize: 11)),
-                      Text(format.format(product.annualPremium), style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+                      const Text('Annual Premium', style: TextStyle(color: Colors.redAccent, fontSize: 11, fontWeight: FontWeight.bold)),
+                      Text(format.format(product.annualPremium), style: TextStyle(color: primaryColor, fontWeight: FontWeight.bold)),
                     ],
                   ),
                 ],
               ),
               const SizedBox(height: 15),
               ElevatedButton(
-                onPressed: () => _showPurchaseConfirmation(product, format),
+                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const InsurancePlansView())),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.black,
+                  backgroundColor: primaryColor,
+                  foregroundColor: Colors.white,
                   minimumSize: const Size(double.infinity, 40),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
-                child: const Text('Buy Now', style: TextStyle(fontWeight: FontWeight.bold)),
+                child: const Text('Compare & Buy', style: TextStyle(fontWeight: FontWeight.bold)),
               ),
             ],
           ),
@@ -387,10 +406,13 @@ class _MarketDashboardViewState extends ConsumerState<MarketDashboardView> with 
     );
   }
 
-  void _showPurchaseConfirmation(InsuranceProduct product, NumberFormat format) {
+  void _showInsurancePurchaseConfirmation(InsuranceProduct product, NumberFormat format) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Theme.of(context).colorScheme.primary;
+
      showModalBottomSheet(
       context: context,
-      backgroundColor: AppColors.surface,
+      backgroundColor: Theme.of(context).cardTheme.color,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) => Padding(
         padding: const EdgeInsets.all(24),
@@ -398,22 +420,23 @@ class _MarketDashboardViewState extends ConsumerState<MarketDashboardView> with 
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Confirm Purchase', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            Text('Confirm Purchase', 
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: isDark ? Colors.white : LightColors.textPrimary)
+            ),
             const SizedBox(height: 8),
-            Text('You are buying ${product.planName} from ${product.provider}.', style: const TextStyle(color: Colors.white70)),
+            Text('You are buying ${product.planName} from ${product.provider}.', style: TextStyle(color: isDark ? Colors.white70 : LightColors.textSecondary)),
             const SizedBox(height: 20),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Premium Amount:', style: TextStyle(color: Colors.white54)),
-                Text(format.format(product.annualPremium), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                Text('Premium Amount:', style: TextStyle(color: isDark ? Colors.white54 : LightColors.textSecondary)),
+                Text(format.format(product.annualPremium), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.redAccent)),
               ],
             ),
             const SizedBox(height: 30),
             ElevatedButton(
               onPressed: () {
                 ref.read(userPortfolioProvider.notifier).tradeInvestment(
-                  userId: 'USER_ID',
                   assetId: product.id,
                   assetName: product.planName,
                   category: 'Insurance',
@@ -424,38 +447,40 @@ class _MarketDashboardViewState extends ConsumerState<MarketDashboardView> with 
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('Purchase of ${product.planName} from ${product.provider} successful!'),
-                    backgroundColor: AppColors.primary,
+                    content: Text('Purchase of ${product.planName} successful!'),
+                    backgroundColor: primaryColor,
                   ),
                 );
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
+                backgroundColor: primaryColor,
                 minimumSize: const Size(double.infinity, 50),
+                foregroundColor: Colors.white,
               ),
-              child: const Text('Confirm & Pay', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+              child: const Text('Confirm & Pay', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
-            const SizedBox(height: 10),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildIndexCard(String label, MarketData data, NumberFormat format) {
+  Widget _buildIndexCard(BuildContext context, String label, MarketData data, NumberFormat format) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isUp = data.changePercentage >= 0;
-    final color = isUp ? AppColors.primary : Colors.redAccent;
+    final primaryColor = Theme.of(context).colorScheme.primary;
+    final color = isUp ? primaryColor : Colors.redAccent;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.bold)),
+        Text(label, style: TextStyle(color: isDark ? Colors.white54 : LightColors.textSecondary, fontSize: 11, fontWeight: FontWeight.bold)),
         const SizedBox(height: 4),
         Row(
           crossAxisAlignment: CrossAxisAlignment.baseline,
           textBaseline: TextBaseline.alphabetic,
           children: [
-            Text(data.currentPrice.toStringAsFixed(2), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            Text(data.currentPrice.toStringAsFixed(2), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? Colors.white : LightColors.textPrimary)),
             const SizedBox(width: 6),
             Text(
               '${isUp ? '+' : ''}${data.priceChange.toStringAsFixed(2)}',
@@ -467,16 +492,18 @@ class _MarketDashboardViewState extends ConsumerState<MarketDashboardView> with 
     );
   }
 
-  Widget _buildMarketRow(MarketData stock, NumberFormat format) {
+  Widget _buildMarketRow(BuildContext context, MarketData stock, NumberFormat format) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Theme.of(context).colorScheme.primary;
     final isUp = stock.changePercentage >= 0;
-    final color = isUp ? AppColors.primary : Colors.redAccent;
+    final color = isUp ? primaryColor : Colors.redAccent;
 
     return InkWell(
       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => AssetDetailView(assetId: stock.symbol))),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         decoration: BoxDecoration(
-          border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.03))),
+          border: Border(bottom: BorderSide(color: (isDark ? Colors.white : Colors.black).withOpacity(0.03))),
         ),
         child: Row(
           children: [
@@ -486,8 +513,8 @@ class _MarketDashboardViewState extends ConsumerState<MarketDashboardView> with 
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(stock.symbol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                  Text(stock.name, style: const TextStyle(color: Colors.white24, fontSize: 11), overflow: TextOverflow.ellipsis),
+                  Text(stock.symbol, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: isDark ? Colors.white : LightColors.textPrimary)),
+                  Text(stock.name, style: TextStyle(color: isDark ? Colors.white24 : LightColors.textSecondary, fontSize: 11), overflow: TextOverflow.ellipsis),
                 ],
               ),
             ),
@@ -507,7 +534,7 @@ class _MarketDashboardViewState extends ConsumerState<MarketDashboardView> with 
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text(format.format(stock.currentPrice), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  Text(format.format(stock.currentPrice), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? Colors.white : LightColors.textPrimary)),
                   Text(
                     '${isUp ? '+' : ''}${stock.changePercentage.toStringAsFixed(2)}%',
                     style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold),
@@ -546,3 +573,4 @@ class _MarketDashboardViewState extends ConsumerState<MarketDashboardView> with 
     );
   }
 }
+

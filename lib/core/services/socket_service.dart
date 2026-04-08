@@ -1,10 +1,11 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fin_aimt/data/providers/investment_provider.dart';
 import 'package:fin_aimt/data/providers/loans_provider.dart';
 import 'package:fin_aimt/data/providers/metrics_provider.dart';
+import 'package:fin_aimt/data/providers/market_provider.dart';
 
 final socketServiceProvider = Provider((ref) => SocketService(ref));
 
@@ -15,7 +16,7 @@ class SocketService {
   SocketService(this.ref);
 
   void connect(String userId) {
-    final baseUrl = Platform.isAndroid ? 'http://10.0.2.2:3000' : 'http://localhost:3000';
+    const baseUrl = kIsWeb ? 'http://localhost:3000' : 'http://10.0.2.2:3000';
     socket = IO.io(baseUrl, <String, dynamic>{
       'transports': ['websocket'],
       'autoConnect': false,

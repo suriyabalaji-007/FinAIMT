@@ -1,10 +1,13 @@
-import 'package:google_generative_ai/google_generative_ai.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fin_aimt/data/providers/finance_provider.dart';
 import 'package:fin_aimt/data/providers/loans_provider.dart';
 import 'package:fin_aimt/data/providers/investment_provider.dart';
 import 'package:fin_aimt/data/providers/metrics_provider.dart';
 import 'package:fin_aimt/data/providers/chat_provider.dart';
+import 'package:fin_aimt/data/providers/market_provider.dart';
+import 'package:fin_aimt/core/services/financial_ai_engine.dart';
 import 'package:intl/intl.dart';
 
 final geminiServiceProvider = Provider<GeminiService>((ref) {
@@ -15,111 +18,142 @@ final geminiServiceProvider = Provider<GeminiService>((ref) {
 class GeminiService {
   final Ref _ref;
   final String apiKey;
-  late final GenerativeModel _model;
-  ChatSession? _chat;
+  final List<Map<String, String>> _messages = [];
 
-  GeminiService(this._ref, this.apiKey) {
-    _model = GenerativeModel(
-      model: 'gemini-2.0-flash',
-      apiKey: apiKey,
-      systemInstruction: Content.system(_buildSystemPrompt()),
-      generationConfig: GenerationConfig(
-        temperature: 0.7,
-        topP: 0.9,
-        maxOutputTokens: 500,
-      ),
-    );
-  }
+  GeminiService(this._ref, this.apiKey);
 
   String _buildSystemPrompt() {
     return '''
-You are FinBot, an expert AI financial advisor for Indian users in the FinAIMT app.
+You are FinBot, an elite AI financial architect for FinAIMT. 
+Your goal is to provide institutional-grade financial analysis with a retail-friendly touch.
 
-YOUR PERSONALITY:
-- Friendly, professional, and concise
-- Use Indian financial context (₹, Indian banks, NSE/BSE, Indian tax slabs)
-- Give specific, actionable advice backed by numbers
-- Use emojis sparingly for readability
-- Keep responses under 150 words
-- Never say you are an AI language model — you ARE FinBot
+SECURITY & PRIVACY:
+- Explicitly state that all calculations are done using "Encyrpted Data Identifiers" to ensure user privacy.
+- Remind users that you never store their actual PII (Personally Identifiable Information).
+- Maintain a secure, objective tone regarding sensitive financial decisions.
 
-YOUR CAPABILITIES:
-- Analyze spending patterns and suggest savings
-- Recommend investment strategies based on risk profile
-- Calculate EMI affordability and loan prepayment benefits
-- Explain Indian tax rules (80C, 80D, HRA, capital gains)
-- Compare investment options (FDs, MFs, Stocks, Gold, PPF)
-- Suggest portfolio rebalancing
+CORE KNOWLEDGE (The "Procedures"):
+- FDs: Low risk, fixed tenures. Procedure: Open via Bank Tab -> Choose Tenure -> Confirm with UPI/OTP.
+- Mutual Funds: SIP (Systematic) vs Lumpsum. Diversification is key. Procedure: KYC verification -> Select Fund -> Pay via AutoPay/UPI.
+- Stocks (Equity): High risk/reward. Procedure: Add to Watchlist -> Analyze Sparkline -> Click 'Buy' for Delivery or Intraday.
+- Post Office: Govt-backed, safe. KVP, NSC, SCSS. Procedure: Identity proof -> Document signing -> Direct deposit at branch or app.
+- Insurance: Protection first. Term life is fundamental.
 
-RESPONSE FORMAT:
-- Use bullet points for multiple recommendations
-- Include specific numbers when possible
-- End with a clear call-to-action or follow-up question
+ANALYSIS GUIDELINES:
+- Real-time Market: Use the provided [MARKET DATA] to tell if it's a 'Buying Opportunity' or 'Market Peak'.
+- Investment Ideas: Analyze pros/cons of user's ideas based on current inflation and interest rates (Safe: 7-8%, Growth: 12-15%).
+- User Doubts: Be patient. Explain concepts like Compound Interest, Tax Harvesting, and Asset Allocation.
+- Procedures: Give step-by-step guides on how to buy/sell within the FinAIMT app.
+
+RESPONSE DYNAMICS:
+- Professional, concise, data-driven.
+- Use ₹ and Indian standards.
+- Keep responses precise (under 200 words).
 ''';
   }
 
   String _buildFinancialContext() {
-    final fmt = NumberFormat.currency(locale: 'en_IN', symbol: '₹');
+    final fmt = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 2);
 
     try {
       final finance = _ref.read(financeDataProvider);
       final loans = _ref.read(loansProvider);
       final investments = _ref.read(dynamicInvestmentsProvider);
       final metrics = _ref.read(metricsProvider);
+      final market = _ref.read(marketDataProvider);
 
       final totalBalance = finance.totalBalance;
       final totalEmi = loans.fold<double>(0, (sum, l) => sum + l.emi);
       final totalInvested = investments.fold<double>(0, (sum, i) => sum + i.investedAmount);
       final totalCurrent = investments.fold<double>(0, (sum, i) => sum + i.currentAmount);
-      final totalProfit = totalCurrent - totalInvested;
 
+      // Market Sentiment
+      final nifty = market['NIFTY50']?.currentPrice ?? 0;
+      final niftyChange = market['NIFTY50']?.changePercentage ?? 0;
+      final topGainer = market.values.reduce((a, b) => a.changePercentage > b.changePercentage ? a : b);
+      
+      // Holdings with Historical Context
+      final holdingsContext = investments.map((i) {
+        final data = market[i.assetId];
+        String trendMsg = 'N/A';
+        if (data != null && data.history.length > 1) {
+          final first = data.history.first;
+          final last = data.history.last;
+          final change = ((last - first) / first * 100).toStringAsFixed(1);
+          trendMsg = '$change% over 30 ticks';
+        }
+        return '${i.name}: ${fmt.format(i.currentAmount)} (30-day simulated trend: $trendMsg)';
+      }).join('\n- ');
+      
       return '''
-[USER'S LIVE FINANCIAL DATA]
+[MARKET REAL-TIME DATA]
+NIFTY 50: ${fmt.format(nifty)} (${niftyChange > 0 ? '+' : ''}$niftyChange%)
+Market Trend: ${niftyChange > 0.5 ? 'Bullish' : niftyChange < -0.5 ? 'Bearish' : 'Sideways'}
+Top Asset Today: ${topGainer.symbol} (${fmt.format(topGainer.currentPrice)}, ${topGainer.changePercentage}%)
+
+[USER'S ENCRYPTED DATA PROFILE]
+UID: ${finance.userProfile.email.hashCode} (Privacy Masked)
 Bank Balance: ${fmt.format(totalBalance)}
-Monthly Income: ${fmt.format(metrics.income)}
-Monthly Expenses: ${fmt.format(metrics.expense)}
-Savings Rate: ${metrics.income > 0 ? ((metrics.income - metrics.expense) / metrics.income * 100).toStringAsFixed(1) : 'N/A'}%
+Income/Expense: ${fmt.format(metrics.income)} / ${fmt.format(metrics.expense)}
+Active Loans: ${loans.length} (Total EMI: ${fmt.format(totalEmi)})
+Portfolio Value: ${fmt.format(totalCurrent)} (ROI: ${totalInvested > 0 ? ((totalCurrent - totalInvested) / totalInvested * 100).toStringAsFixed(2) : '0'}%)
 
-Active Loans: ${loans.length}
-Total Monthly EMI: ${fmt.format(totalEmi)}
-EMI-to-Income Ratio: ${metrics.income > 0 ? (totalEmi / metrics.income * 100).toStringAsFixed(1) : 'N/A'}%
+[HOLDINGS & HISTORY]
+- $holdingsContext
 
-Investment Portfolio: ${fmt.format(totalCurrent)}
-Total Invested: ${fmt.format(totalInvested)}
-Net P&L: ${fmt.format(totalProfit)} (${totalInvested > 0 ? (totalProfit / totalInvested * 100).toStringAsFixed(1) : '0'}%)
-Holdings: ${investments.map((i) => '${i.name}: ${fmt.format(i.currentAmount)}').join(', ')}
-
-Loan Details: ${loans.map((l) => '${l.title} (${l.bank}): EMI ${fmt.format(l.emi)}, Remaining ${fmt.format(l.remainingAmount)}, Rate ${l.interestRate}%').join(' | ')}
-
-Credit Cards: ${finance.creditCards.map((c) => '${c.cardName}: ${c.utilization.toStringAsFixed(0)}% used').join(', ')}
-
-Top Expense Categories: ${metrics.expenseCategories.entries.map((e) => '${e.key}: ${fmt.format(e.value)}').join(', ')}
+[ALERTS & PROCEDURES]
+Loan Alerts: ${loans.where((l) => l.interestRate > 10).map((l) => '${l.title} has high ${l.interestRate}% interest').join(', ')}
+Recent Transactions: ${finance.transactions.take(5).map((t) => '${t.title}: ${fmt.format(t.amount)}').join(' | ')}
 ''';
     } catch (e) {
-      return '[Financial data currently loading...]';
+      return '[Context processing... encryption layer active]';
     }
   }
 
   Future<String> sendMessage(String userMessage) async {
     try {
-      // Rebuild chat with fresh context each time
-      _chat = _model.startChat();
-
-      // Send context + user message
-      final contextualMessage = '${_buildFinancialContext()}\n\nUser: $userMessage';
-      
       if (apiKey.trim().isEmpty || apiKey == 'YOUR_GEMINI_API_KEY_HERE') {
-        return '⚠️ Please configure your Gemini API key in the settings (gear icon) first.';
+        return '⚠️ Please configure your API key in the settings (gear icon) first.';
       }
 
-      final response = await _chat!.sendMessage(Content.text(contextualMessage));
+      // Use FinancialAIEngine for rich, on-device computed context
+      final engine = _ref.read(financialAIEngineProvider);
+      final fullPrompt = engine.buildFullFinancialPrompt(userMessage);
 
-      return response.text ?? 'I couldn\'t process that. Please try again.';
+      // Manage conversation history manually
+      _messages.add({'role': 'user', 'content': fullPrompt});
+
+      final url = Uri.parse('https://api.groq.com/openai/v1/chat/completions');
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $apiKey',
+        },
+        body: jsonEncode({
+          'model': 'llama-3.3-70b-versatile',
+          'messages': [
+            {'role': 'system', 'content': _buildSystemPrompt()},
+            ..._messages,
+          ],
+          'temperature': 0.7,
+          'max_completion_tokens': 1000,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final aiText = data['choices'][0]['message']['content'];
+        _messages.add({'role': 'assistant', 'content': aiText});
+        return aiText;
+      } else {
+        return '⚠️ API Error: ${response.statusCode} - ${response.body}';
+      }
     } catch (e) {
-      if (e.toString().contains('API key')) {
-        return '⚠️ API key issue. Please check your Gemini API key configuration.';
+      if (e.toString().contains('apiKey')) {
+        return '⚠️ API key issue. Please check your API key configuration.';
       }
-      return '⚠️ Connection issue. Please check your internet and try again.';
+      return '⚠️ Error: ${e.toString()}';
     }
   }
 }

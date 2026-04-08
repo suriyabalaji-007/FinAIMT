@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fin_aimt/core/theme.dart';
 import 'package:fin_aimt/data/providers/finance_provider.dart';
-import 'package:fin_aimt/screens/home/dashboard_screen.dart';
 
 class GlobalHeader extends ConsumerWidget {
   final String title;
@@ -13,13 +12,17 @@ class GlobalHeader extends ConsumerWidget {
   const GlobalHeader({
     super.key,
     this.title = 'FinAIMT',
-    this.subtitle = 'Financial Super App',
-    this.showLogo = true,
+    this.subtitle,
+    this.showLogo = false,
     this.actions,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Theme.of(context).colorScheme.primary;
+    final textPrimary = isDark ? Colors.white : LightColors.textPrimary;
+
     return Container(
       padding: const EdgeInsets.fromLTRB(25, 50, 20, 15),
       child: Row(
@@ -27,37 +30,37 @@ class GlobalHeader extends ConsumerWidget {
         children: [
           Row(
             children: [
-              if (showLogo) ...[
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(Icons.auto_graph_rounded, color: AppColors.primary, size: 24),
+              // Stylized Logo
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: primaryColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                const SizedBox(width: 15),
-              ],
+                child: Icon(Icons.auto_graph_rounded, color: primaryColor, size: 24),
+              ),
+              const SizedBox(width: 12),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
+                    'FinAIMT',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
                       letterSpacing: -0.5,
-                      color: Colors.white,
+                      color: primaryColor,
+                      height: 1.0,
                     ),
                   ),
-                  if (subtitle != null)
+                  if (title != 'Fin AIMT' && title != 'FinAIMT')
                     Text(
-                      subtitle!,
+                      title,
                       style: TextStyle(
-                        fontSize: 11,
-                        color: Colors.white.withOpacity(0.4),
-                        fontWeight: FontWeight.w500,
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: textPrimary.withOpacity(0.6),
+                        height: 1.2,
                       ),
                     ),
                 ],
@@ -67,12 +70,7 @@ class GlobalHeader extends ConsumerWidget {
           Row(
             children: [
               _headerIconButton(
-                icon: Icons.auto_awesome_outlined,
-                onTap: () => ref.read(currentTabProvider.notifier).setTab(6),
-                color: AppColors.primary,
-              ),
-              const SizedBox(width: 10),
-              _headerIconButton(
+                context: context,
                 icon: Icons.notifications_none_rounded,
                 onTap: () {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -82,11 +80,22 @@ class GlobalHeader extends ConsumerWidget {
                     ),
                   );
                 },
+                color: isDark ? Colors.white70 : LightColors.textPrimary,
               ),
-              const SizedBox(width: 10),
               _headerIconButton(
-                icon: Icons.person_outline_rounded,
+                context: context,
+                icon: Icons.auto_awesome_rounded,
+                onTap: () => ref.read(currentTabProvider.notifier).setTab(6),
+                color: primaryColor,
+              ),
+              const SizedBox(width: 12),
+              GestureDetector(
                 onTap: () => ref.read(currentTabProvider.notifier).setTab(5),
+                child: CircleAvatar(
+                  radius: 20,
+                  backgroundColor: isDark ? Colors.white10 : const Color(0xFFF2F4F7),
+                  child: Icon(Icons.person, color: isDark ? Colors.white70 : LightColors.textPrimary, size: 24),
+                ),
               ),
               if (actions != null) ...actions!,
             ],
@@ -97,20 +106,23 @@ class GlobalHeader extends ConsumerWidget {
   }
 
   Widget _headerIconButton({
+    required BuildContext context,
     required IconData icon,
     required VoidCallback onTap,
-    Color color = Colors.white,
+    required Color color,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.05),
+          color: (isDark ? Colors.white : Colors.black).withOpacity(0.05),
           borderRadius: BorderRadius.circular(12),
         ),
-        child: Icon(icon, color: color.withOpacity(0.8), size: 22),
+        child: Icon(icon, color: color, size: 22),
       ),
     );
   }

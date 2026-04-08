@@ -222,6 +222,7 @@ class TaxSummary {
 class MarketData {
   final String symbol; // e.g., 'GOLD', 'NIFTY50'
   final String name; 
+  final String category; // Stocks, ETFs, Mutual Funds, etc.
   final double currentPrice;
   final double priceChange;
   final double changePercentage;
@@ -231,6 +232,7 @@ class MarketData {
   MarketData({
     required this.symbol,
     required this.name,
+    required this.category,
     required this.currentPrice,
     required this.priceChange,
     required this.changePercentage,
@@ -241,6 +243,7 @@ class MarketData {
   MarketData copyWith({
     String? symbol,
     String? name,
+    String? category,
     double? currentPrice,
     double? priceChange,
     double? changePercentage,
@@ -250,6 +253,7 @@ class MarketData {
     return MarketData(
       symbol: symbol ?? this.symbol,
       name: name ?? this.name,
+      category: category ?? this.category,
       currentPrice: currentPrice ?? this.currentPrice,
       priceChange: priceChange ?? this.priceChange,
       changePercentage: changePercentage ?? this.changePercentage,

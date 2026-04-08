@@ -7,6 +7,7 @@ import 'package:fin_aimt/widgets/global_header.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:fin_aimt/data/providers/loans_provider.dart';
+import 'package:fin_aimt/widgets/unified_payment_flow.dart';
 
 class LoansView extends ConsumerWidget {
   const LoansView({super.key});
@@ -17,6 +18,10 @@ class LoansView extends ConsumerWidget {
     final financeData = ref.watch(financeDataProvider);
     final cards = financeData.creditCards;
     final currencyFormat = NumberFormat.currency(locale: 'en_IN', symbol: '₹');
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Theme.of(context).colorScheme.primary;
+    final textPrimary = isDark ? Colors.white : LightColors.textPrimary;
+    final textSecondary = isDark ? Colors.white54 : LightColors.textSecondary;
 
     double totalEmi = loans.fold(0, (sum, loan) => sum + loan.emi);
     double totalRemaining = loans.fold(0, (sum, loan) => sum + loan.remainingAmount);
@@ -25,42 +30,26 @@ class LoansView extends ConsumerWidget {
       : 0;
 
     void showPayEmiDialog(Loan loan) {
-      showDialog(
+      UnifiedPaymentFlow.show(
         context: context,
-        builder: (ctx) => AlertDialog(
-          backgroundColor: AppColors.surface,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Text('Pay EMI — ${loan.title}', style: const TextStyle(color: Colors.white)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _infoRow('EMI Amount', currencyFormat.format(loan.emi)),
-              _infoRow('Bank', loan.bank),
-              _infoRow('Interest', '${loan.interestRate}% p.a.'),
-              _infoRow('Remaining', currencyFormat.format(loan.remainingAmount)),
-              _infoRow('Next Due', DateFormat('dd MMM yyyy').format(loan.nextDueDate)),
-            ],
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel', style: TextStyle(color: AppColors.textHint))),
-            ElevatedButton(
-              onPressed: loan.remainingAmount > 0 ? () {
-                ref.read(loansProvider.notifier).payEMI('USER_ID', loan.id);
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('✅ ${currencyFormat.format(loan.emi)} EMI paid for ${loan.title}'),
-                    behavior: SnackBarBehavior.floating,
-                    backgroundColor: AppColors.primary,
-                  ),
-                );
-              } : null,
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
-              child: const Text('Pay Now', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+        ref: ref,
+        assetName: 'EMI Repayment: ${loan.title}',
+        category: 'Loans',
+        quantity: 1,
+        pricePerUnit: loan.emi,
+        side: 'buy', // Using 'buy' as the positive transaction side for repayment
+        itemId: loan.id,
+      ).then((success) {
+        if (success) {
+           ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('✅ ${currencyFormat.format(loan.emi)} EMI paid for ${loan.title}'),
+              behavior: SnackBarBehavior.floating,
+              backgroundColor: primaryColor,
             ),
-          ],
-        ),
-      );
+          );
+        }
+      });
     }
 
     void showEmiCalculator() {
@@ -72,7 +61,7 @@ class LoansView extends ConsumerWidget {
       showModalBottomSheet(
         context: context,
         isScrollControlled: true,
-        backgroundColor: AppColors.surface,
+        backgroundColor: Theme.of(context).cardTheme.color,
         shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
         builder: (ctx) {
           return StatefulBuilder(builder: (ctx, setSheetState) {
@@ -96,15 +85,15 @@ class LoansView extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Center(child: Text('EMI Calculator', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white))),
+                  Center(child: Text('EMI Calculator', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: textPrimary))),
                   const SizedBox(height: 24),
-                  _buildCalcField(principalCtrl, 'Loan Amount (₹)', Icons.currency_rupee),
+                  _buildCalcField(context, principalCtrl, 'Loan Amount (₹)', Icons.currency_rupee),
                   const SizedBox(height: 12),
                   Row(
                     children: [
-                      Expanded(child: _buildCalcField(rateCtrl, 'Rate %', Icons.percent)),
+                      Expanded(child: _buildCalcField(context, rateCtrl, 'Rate %', Icons.percent)),
                       const SizedBox(width: 12),
-                      Expanded(child: _buildCalcField(tenureCtrl, 'Months', Icons.calendar_month)),
+                      Expanded(child: _buildCalcField(context, tenureCtrl, 'Months', Icons.calendar_month)),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -113,11 +102,11 @@ class LoansView extends ConsumerWidget {
                     child: ElevatedButton(
                       onPressed: calculate,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
+                        backgroundColor: primaryColor,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                       ),
-                      child: const Text('Calculate', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 16)),
+                      child: const Text('Calculate', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
                     ),
                   ),
                   if (emi > 0) ...[
@@ -125,17 +114,17 @@ class LoansView extends ConsumerWidget {
                     Container(
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.08),
+                        color: primaryColor.withOpacity(0.08),
                         borderRadius: BorderRadius.circular(18),
-                        border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+                        border: Border.all(color: primaryColor.withOpacity(0.2)),
                       ),
                       child: Column(
                         children: [
-                          _resultRow('Monthly EMI', currencyFormat.format(emi), AppColors.primary),
+                          _resultRow(context, 'Monthly EMI', currencyFormat.format(emi), primaryColor),
                           const SizedBox(height: 10),
-                          _resultRow('Total Payable', currencyFormat.format(totalPayable), Colors.white70),
+                          _resultRow(context, 'Total Payable', currencyFormat.format(totalPayable), textPrimary.withOpacity(0.7)),
                           const SizedBox(height: 10),
-                          _resultRow('Total Interest', currencyFormat.format(totalInterest), Colors.orangeAccent),
+                          _resultRow(context, 'Total Interest', currencyFormat.format(totalInterest), Colors.orangeAccent),
                         ],
                       ),
                     ),
@@ -160,36 +149,36 @@ class LoansView extends ConsumerWidget {
         context: context,
         builder: (ctx) => StatefulBuilder(builder: (ctx, setDialogState) {
           return AlertDialog(
-            backgroundColor: AppColors.surface,
+            backgroundColor: Theme.of(context).cardTheme.color,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            title: const Text('Apply for Loan', style: TextStyle(color: Colors.white)),
+            title: Text('Apply for Loan', style: TextStyle(color: textPrimary)),
             content: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _buildDialogField(titleCtrl, 'Loan Title'),
+                  _buildDialogField(context, titleCtrl, 'Loan Title'),
                   const SizedBox(height: 10),
-                  _buildDialogField(bankCtrl, 'Bank Name'),
+                  _buildDialogField(context, bankCtrl, 'Bank Name'),
                   const SizedBox(height: 10),
-                  _buildDialogField(amountCtrl, 'Principal Amount (₹)', isNumber: true),
+                  _buildDialogField(context, amountCtrl, 'Principal Amount (₹)', isNumber: true),
                   const SizedBox(height: 10),
                   Row(
                     children: [
-                      Expanded(child: _buildDialogField(rateCtrl, 'Rate %', isNumber: true)),
+                      Expanded(child: _buildDialogField(context, rateCtrl, 'Rate %', isNumber: true)),
                       const SizedBox(width: 8),
-                      Expanded(child: _buildDialogField(tenureCtrl, 'Months', isNumber: true)),
+                      Expanded(child: _buildDialogField(context, tenureCtrl, 'Months', isNumber: true)),
                     ],
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
-                    value: selectedType,
-                    dropdownColor: AppColors.surface,
-                    style: const TextStyle(color: Colors.white),
+                    initialValue: selectedType,
+                    dropdownColor: Theme.of(context).cardTheme.color,
+                    style: TextStyle(color: textPrimary),
                     decoration: InputDecoration(
                       labelText: 'Loan Type',
-                      labelStyle: const TextStyle(color: AppColors.textHint),
-                      enabledBorder: OutlineInputBorder(borderSide: const BorderSide(color: Colors.white10), borderRadius: BorderRadius.circular(12)),
-                      focusedBorder: OutlineInputBorder(borderSide: const BorderSide(color: AppColors.primary), borderRadius: BorderRadius.circular(12)),
+                      labelStyle: TextStyle(color: textSecondary),
+                      enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: (isDark ? Colors.white : Colors.black).withOpacity(0.1)), borderRadius: BorderRadius.circular(12)),
+                      focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: primaryColor), borderRadius: BorderRadius.circular(12)),
                     ),
                     items: ['Personal', 'Home', 'Education', 'Vehicle', 'Business'].map((t) =>
                       DropdownMenuItem(value: t, child: Text(t))).toList(),
@@ -199,7 +188,7 @@ class LoansView extends ConsumerWidget {
               ),
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel', style: TextStyle(color: AppColors.textHint))),
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel', style: TextStyle(color: Colors.grey))),
               ElevatedButton(
                 onPressed: () {
                   final principal = double.tryParse(amountCtrl.text) ?? 0;
@@ -216,12 +205,12 @@ class LoansView extends ConsumerWidget {
                     );
                     Navigator.pop(ctx);
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('🎉 ${titleCtrl.text} approved!'), behavior: SnackBarBehavior.floating, backgroundColor: AppColors.primary),
+                      SnackBar(content: Text('🎉 ${titleCtrl.text} approved!'), behavior: SnackBarBehavior.floating, backgroundColor: primaryColor),
                     );
                   }
                 },
-                style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
-                child: const Text('Apply', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(backgroundColor: primaryColor),
+                child: const Text('Apply', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
               ),
             ],
           );
@@ -239,26 +228,24 @@ class LoansView extends ConsumerWidget {
             subtitle: 'Active Loans & Credit',
             showLogo: false,
           ),
-          // Additional Loans Actions
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 10),
             child: Row(
               children: [
-                _headerAction(Icons.calculate_outlined, 'Calculator', () => showEmiCalculator()),
+                _headerAction(context, Icons.calculate_outlined, 'Calculator', () => showEmiCalculator()),
                 const SizedBox(width: 10),
-                _headerAction(Icons.add_circle_outline, 'New Loan', () => showApplyLoanDialog()),
+                _headerAction(context, Icons.add_circle_outline, 'New Loan', () => showApplyLoanDialog()),
               ],
             ),
           ),
 
-          // Summary Cards Row
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 25),
             child: Row(
               children: [
-                Expanded(child: _summaryCard('Total EMI/mo', currencyFormat.format(totalEmi), Icons.payments_outlined, AppColors.primary)),
+                Expanded(child: _summaryCard(context, 'Total EMI/mo', currencyFormat.format(totalEmi), Icons.payments_outlined, primaryColor)),
                 const SizedBox(width: 12),
-                Expanded(child: _summaryCard('Outstanding', currencyFormat.format(totalRemaining), Icons.account_balance_wallet, Colors.orangeAccent)),
+                Expanded(child: _summaryCard(context, 'Outstanding', currencyFormat.format(totalRemaining), Icons.account_balance_wallet, Colors.orangeAccent)),
               ],
             ),
           ),
@@ -267,24 +254,30 @@ class LoansView extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(horizontal: 25),
             child: Row(
               children: [
-                Expanded(child: _summaryCard('Active Loans', '${loans.length}', Icons.receipt_long, Colors.blueAccent)),
+                Expanded(child: _summaryCard(context, 'Active Loans', '${loans.length}', Icons.receipt_long, Colors.blueAccent)),
                 const SizedBox(width: 12),
-                Expanded(child: _summaryCard('Next Due', '$daysToNextDue days', Icons.event, Colors.redAccent)),
+                Expanded(child: _summaryCard(context, 'Next Due', '$daysToNextDue days', Icons.event, Colors.redAccent)),
               ],
             ),
           ),
 
-          // EMI Distribution Chart
-          const Padding(
-            padding: EdgeInsets.fromLTRB(25, 30, 25, 15),
-            child: Text('EMI Distribution', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(25, 30, 25, 15),
+            child: Text('EMI Distribution', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textPrimary)),
           ),
           if (loans.isNotEmpty)
             Container(
               height: 200,
               margin: const EdgeInsets.symmetric(horizontal: 25),
               padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.white.withOpacity(0.05))),
+              decoration: BoxDecoration(
+                color: Theme.of(context).cardTheme.color, 
+                borderRadius: BorderRadius.circular(20), 
+                border: Border.all(color: (isDark ? Colors.white : Colors.black).withOpacity(0.05)),
+                boxShadow: isDark ? [] : [
+                  BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))
+                ],
+              ),
               child: Row(
                 children: [
                   Expanded(
@@ -318,7 +311,7 @@ class LoansView extends ConsumerWidget {
                           children: [
                             Container(width: 10, height: 10, decoration: BoxDecoration(color: colors[e.key % colors.length], borderRadius: BorderRadius.circular(3))),
                             const SizedBox(width: 8),
-                            Text(e.value.type, style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                            Text(e.value.type, style: TextStyle(color: textSecondary, fontSize: 12)),
                           ],
                         ),
                       );
@@ -328,20 +321,18 @@ class LoansView extends ConsumerWidget {
               ),
             ),
 
-          // Active Loans
-          const Padding(
-            padding: EdgeInsets.fromLTRB(25, 30, 25, 15),
-            child: Text('Active Loans', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(25, 30, 25, 15),
+            child: Text('Active Loans', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textPrimary)),
           ),
-          ...loans.map((loan) => _buildLoanItem(loan, currencyFormat, () => showPayEmiDialog(loan))),
+          ...loans.map((loan) => _buildLoanItem(context, loan, currencyFormat, () => showPayEmiDialog(loan))),
 
-          // Credit Card Utilization
           if (cards.isNotEmpty) ...[
-            const Padding(
-              padding: EdgeInsets.fromLTRB(25, 30, 25, 15),
-              child: Text('Credit Card Utilization', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(25, 30, 25, 15),
+              child: Text('Credit Card Utilization', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textPrimary)),
             ),
-            ...cards.map((card) => _buildCardUtilizationItem(card, currencyFormat)),
+            ...cards.map((card) => _buildCardUtilizationItem(context, card, currencyFormat)),
           ],
 
           const SizedBox(height: 120),
@@ -350,38 +341,41 @@ class LoansView extends ConsumerWidget {
     );
   }
 
-  // ---- Helper Widgets ----
-
-  Widget _headerAction(IconData icon, String label, VoidCallback onTap) {
+  Widget _headerAction(BuildContext context, IconData icon, String label, VoidCallback onTap) {
+    final primaryColor = Theme.of(context).colorScheme.primary;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: AppColors.primary.withOpacity(0.1),
+          color: primaryColor.withOpacity(0.1),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+          border: Border.all(color: primaryColor.withOpacity(0.2)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: AppColors.primary, size: 16),
+            Icon(icon, color: primaryColor, size: 16),
             const SizedBox(width: 4),
-            Text(label, style: const TextStyle(color: AppColors.primary, fontSize: 11, fontWeight: FontWeight.bold)),
+            Text(label, style: TextStyle(color: primaryColor, fontSize: 11, fontWeight: FontWeight.bold)),
           ],
         ),
       ),
     );
   }
 
-  Widget _summaryCard(String label, String value, IconData icon, Color color) {
+  Widget _summaryCard(BuildContext context, String label, String value, IconData icon, Color color) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: Theme.of(context).cardTheme.color,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: color.withOpacity(0.15)),
+        border: Border.all(color: (isDark ? color.withOpacity(0.15) : Colors.black.withOpacity(0.05))),
+        boxShadow: isDark ? [] : [
+          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))
+        ],
       ),
       child: Row(
         children: [
@@ -395,9 +389,9 @@ class LoansView extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: const TextStyle(color: Colors.white30, fontSize: 10)),
+                Text(label, style: TextStyle(color: isDark ? Colors.white30 : LightColors.textHint, fontSize: 10)),
                 const SizedBox(height: 2),
-                Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14), overflow: TextOverflow.ellipsis),
+                Text(value, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? Colors.white : LightColors.textPrimary), overflow: TextOverflow.ellipsis),
               ],
             ),
           ),
@@ -406,61 +400,71 @@ class LoansView extends ConsumerWidget {
     );
   }
 
-  Widget _infoRow(String label, String value) {
+  Widget _infoRow(BuildContext context, String label, String value) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(color: Colors.white54, fontSize: 13)),
-          Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+          Text(label, style: TextStyle(color: isDark ? Colors.white54 : LightColors.textSecondary, fontSize: 13)),
+          Text(value, style: TextStyle(color: isDark ? Colors.white : LightColors.textPrimary, fontWeight: FontWeight.bold, fontSize: 13)),
         ],
       ),
     );
   }
 
-  Widget _resultRow(String label, String value, Color valueColor) {
+  Widget _resultRow(BuildContext context, String label, String value, Color valueColor) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: const TextStyle(color: Colors.white54, fontSize: 13)),
+        Text(label, style: TextStyle(color: isDark ? Colors.white54 : LightColors.textSecondary, fontSize: 13)),
         Text(value, style: TextStyle(color: valueColor, fontWeight: FontWeight.bold, fontSize: 14)),
       ],
     );
   }
 
-  Widget _buildCalcField(TextEditingController ctrl, String label, IconData icon) {
+  Widget _buildCalcField(BuildContext context, TextEditingController ctrl, String label, IconData icon) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Theme.of(context).colorScheme.primary;
     return TextField(
       controller: ctrl,
-      style: const TextStyle(color: Colors.white),
+      style: TextStyle(color: isDark ? Colors.white : LightColors.textPrimary),
       keyboardType: TextInputType.number,
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: const TextStyle(color: AppColors.textHint, fontSize: 13),
-        prefixIcon: Icon(icon, color: AppColors.primary, size: 18),
-        enabledBorder: OutlineInputBorder(borderSide: const BorderSide(color: Colors.white10), borderRadius: BorderRadius.circular(14)),
-        focusedBorder: OutlineInputBorder(borderSide: const BorderSide(color: AppColors.primary), borderRadius: BorderRadius.circular(14)),
+        labelStyle: TextStyle(color: isDark ? AppColors.textHint : LightColors.textHint, fontSize: 13),
+        prefixIcon: Icon(icon, color: primaryColor, size: 18),
+        enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: (isDark ? Colors.white10 : Colors.black12)), borderRadius: BorderRadius.circular(14)),
+        focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: primaryColor), borderRadius: BorderRadius.circular(14)),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       ),
     );
   }
 
-  Widget _buildDialogField(TextEditingController ctrl, String label, {bool isNumber = false}) {
+  Widget _buildDialogField(BuildContext context, TextEditingController ctrl, String label, {bool isNumber = false}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Theme.of(context).colorScheme.primary;
     return TextField(
       controller: ctrl,
-      style: const TextStyle(color: Colors.white, fontSize: 14),
+      style: TextStyle(color: isDark ? Colors.white : LightColors.textPrimary, fontSize: 14),
       keyboardType: isNumber ? TextInputType.number : TextInputType.text,
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: const TextStyle(color: AppColors.textHint, fontSize: 12),
-        enabledBorder: OutlineInputBorder(borderSide: const BorderSide(color: Colors.white10), borderRadius: BorderRadius.circular(12)),
-        focusedBorder: OutlineInputBorder(borderSide: const BorderSide(color: AppColors.primary), borderRadius: BorderRadius.circular(12)),
+        labelStyle: TextStyle(color: isDark ? AppColors.textHint : LightColors.textHint, fontSize: 12),
+        enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: (isDark ? Colors.white10 : Colors.black12)), borderRadius: BorderRadius.circular(12)),
+        focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: primaryColor), borderRadius: BorderRadius.circular(12)),
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       ),
     );
   }
 
-  Widget _buildLoanItem(Loan loan, NumberFormat format, VoidCallback onPayEmi) {
+  Widget _buildLoanItem(BuildContext context, Loan loan, NumberFormat format, VoidCallback onPayEmi) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Theme.of(context).colorScheme.primary;
+    final textPrimary = isDark ? Colors.white : LightColors.textPrimary;
+    final textSecondary = isDark ? Colors.white30 : LightColors.textSecondary;
     final daysUntilDue = loan.nextDueDate.difference(DateTime.now()).inDays;
     final isUrgent = daysUntilDue <= 7;
     final isPaid = loan.remainingAmount <= 0;
@@ -469,9 +473,12 @@ class LoansView extends ConsumerWidget {
       margin: const EdgeInsets.symmetric(horizontal: 25, vertical: 8),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: Theme.of(context).cardTheme.color,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: isUrgent ? Colors.redAccent.withOpacity(0.3) : Colors.white.withOpacity(0.05)),
+        border: Border.all(color: isUrgent ? Colors.redAccent.withOpacity(0.3) : (isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05))),
+        boxShadow: isDark ? [] : [
+          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))
+        ],
       ),
       child: Column(
         children: [
@@ -484,27 +491,27 @@ class LoansView extends ConsumerWidget {
                   children: [
                     Row(
                       children: [
-                        Text(loan.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        Text(loan.title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: textPrimary)),
                         if (isPaid) ...[
                           const SizedBox(width: 8),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.2), borderRadius: BorderRadius.circular(6)),
-                            child: const Text('PAID', style: TextStyle(color: AppColors.primary, fontSize: 9, fontWeight: FontWeight.bold)),
+                            decoration: BoxDecoration(color: primaryColor.withOpacity(0.2), borderRadius: BorderRadius.circular(6)),
+                            child: Text('PAID', style: TextStyle(color: primaryColor, fontSize: 9, fontWeight: FontWeight.bold)),
                           ),
                         ],
                       ],
                     ),
-                    Text('${loan.bank} • ${loan.interestRate}% p.a.', style: const TextStyle(color: Colors.white30, fontSize: 12)),
+                    Text('${loan.bank} • ${loan.interestRate}% p.a.', style: TextStyle(color: textSecondary, fontSize: 12)),
                   ],
                 ),
               ),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text('${format.format(loan.emi)}/mo', style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary, fontSize: 14)),
+                  Text('${format.format(loan.emi)}/mo', style: TextStyle(fontWeight: FontWeight.bold, color: primaryColor, fontSize: 14)),
                   if (!isPaid)
-                    Text('Due in $daysUntilDue days', style: TextStyle(color: isUrgent ? Colors.redAccent : Colors.white30, fontSize: 11)),
+                    Text('Due in $daysUntilDue days', style: TextStyle(color: isUrgent ? Colors.redAccent : textSecondary, fontSize: 11)),
                 ],
               ),
             ],
@@ -514,8 +521,8 @@ class LoansView extends ConsumerWidget {
             borderRadius: BorderRadius.circular(10),
             child: LinearProgressIndicator(
               value: loan.progress.clamp(0.0, 1.0),
-              backgroundColor: Colors.white.withOpacity(0.05),
-              valueColor: AlwaysStoppedAnimation<Color>(isPaid ? AppColors.primary : (isUrgent ? Colors.redAccent : AppColors.primary)),
+              backgroundColor: (isDark ? Colors.white10 : Colors.black.withOpacity(0.05)),
+              valueColor: AlwaysStoppedAnimation<Color>(isPaid ? primaryColor : (isUrgent ? Colors.redAccent : primaryColor)),
               minHeight: 8,
             ),
           ),
@@ -523,8 +530,8 @@ class LoansView extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Paid: ${format.format(loan.totalAmount - loan.remainingAmount)}', style: const TextStyle(fontSize: 11, color: Colors.white30)),
-              Text('Remaining: ${format.format(loan.remainingAmount)}', style: const TextStyle(fontSize: 11, color: Colors.white30)),
+              Text('Paid: ${format.format(loan.totalAmount - loan.remainingAmount)}', style: TextStyle(fontSize: 11, color: textSecondary)),
+              Text('Remaining: ${format.format(loan.remainingAmount)}', style: TextStyle(fontSize: 11, color: textSecondary)),
             ],
           ),
           if (!isPaid) ...[
@@ -536,8 +543,8 @@ class LoansView extends ConsumerWidget {
                 icon: const Icon(Icons.payments_outlined, size: 18),
                 label: const Text('Pay EMI', style: TextStyle(fontWeight: FontWeight.bold)),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.black,
+                  backgroundColor: primaryColor,
+                  foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 ),
@@ -549,18 +556,25 @@ class LoansView extends ConsumerWidget {
     );
   }
 
-  Widget _buildCardUtilizationItem(CreditCard card, NumberFormat format) {
+  Widget _buildCardUtilizationItem(BuildContext context, CreditCard card, NumberFormat format) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Theme.of(context).colorScheme.primary;
+    final textPrimary = isDark ? Colors.white : LightColors.textPrimary;
+    final textSecondary = isDark ? Colors.white30 : LightColors.textSecondary;
     final utilization = card.utilization;
     final isHigh = utilization > 50;
-    final color = isHigh ? Colors.orange : AppColors.primary;
+    final color = isHigh ? Colors.orange : primaryColor;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 25, vertical: 8),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: Theme.of(context).cardTheme.color,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
+        border: Border.all(color: (isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05))),
+        boxShadow: isDark ? [] : [
+          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -572,7 +586,7 @@ class LoansView extends ConsumerWidget {
                 children: [
                   Icon(Icons.credit_card, color: color, size: 20),
                   const SizedBox(width: 8),
-                  Text(card.cardName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text(card.cardName, style: TextStyle(fontWeight: FontWeight.bold, color: textPrimary)),
                 ],
               ),
               Container(
@@ -590,7 +604,7 @@ class LoansView extends ConsumerWidget {
             borderRadius: BorderRadius.circular(10),
             child: LinearProgressIndicator(
               value: (utilization / 100).clamp(0.0, 1.0),
-              backgroundColor: Colors.white.withOpacity(0.05),
+              backgroundColor: (isDark ? Colors.white10 : Colors.black.withOpacity(0.05)),
               valueColor: AlwaysStoppedAnimation<Color>(color),
               minHeight: 8,
             ),
@@ -599,12 +613,34 @@ class LoansView extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Limit: ${format.format(card.limit)}', style: const TextStyle(fontSize: 11, color: Colors.white30)),
-              Text('Due: ${format.format(card.balance)}', style: const TextStyle(fontSize: 11, color: Colors.white30)),
+              Text('Limit: ${format.format(card.limit)}', style: TextStyle(fontSize: 11, color: textSecondary)),
+              Text('Due: ${format.format(card.balance)}', style: TextStyle(fontSize: 11, color: textSecondary)),
             ],
           ),
         ],
       ),
     );
   }
+}
+
+// Logic for EMI calculation helper
+Map<String, double> calculateEMI({required double principal, required double rate, required int months}) {
+  final double monthlyRate = rate / (12 * 100);
+  final double emi = principal * monthlyRate * (pow(1 + monthlyRate, months)) / (pow(1 + monthlyRate, months) - 1);
+  final double totalPayable = emi * months;
+  final double totalInterest = totalPayable - principal;
+  
+  return {
+    'emi': emi,
+    'totalPayable': totalPayable,
+    'totalInterest': totalInterest,
+  };
+}
+
+num pow(num x, num y) {
+  num result = 1;
+  for (int i = 0; i < y; i++) {
+    result *= x;
+  }
+  return result;
 }

@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fin_aimt/core/theme.dart';
-import 'package:fin_aimt/data/providers/finance_provider.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:fin_aimt/data/providers/metrics_provider.dart';
-import 'package:fin_aimt/widgets/fin_widgets.dart';
 import 'package:fin_aimt/widgets/global_header.dart';
+import 'package:fin_aimt/screens/expenses/tax_report_view.dart';
 
 class ExpensesView extends ConsumerWidget {
   const ExpensesView({super.key});
@@ -14,11 +13,11 @@ class ExpensesView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final metrics = ref.watch(metricsProvider);
-    final financeData = ref.watch(financeDataProvider);
-    final transactions = financeData.transactions;
     final currencyFormat = NumberFormat.currency(locale: 'en_IN', symbol: '₹');
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Theme.of(context).colorScheme.primary;
 
-    Color _getCategoryColor(String category) {
+    Color getCategoryColor(String category) {
       switch (category) {
         case 'Food': return Colors.orange;
         case 'Bills': return Colors.blue;
@@ -29,187 +28,76 @@ class ExpensesView extends ConsumerWidget {
       }
     }
 
-    void showMockAction(String action) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Viewing $action details...'), behavior: SnackBarBehavior.floating),
+    void handleTaxAction(String taxType) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) {
+          return AlertDialog(
+            backgroundColor: Theme.of(context).cardTheme.color,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            content: Row(
+              children: [
+                SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(color: primaryColor, strokeWidth: 3),
+                ),
+                const SizedBox(width: 20),
+                Expanded(child: Text('Connecting to $taxType portal...', 
+                  style: TextStyle(color: isDark ? Colors.white70 : Colors.black87)
+                )),
+              ],
+            ),
+          );
+        },
       );
+
+      Future.delayed(const Duration(milliseconds: 1500), () {
+        Navigator.pop(context); // close connecting
+        showModalBottomSheet(
+          context: context,
+          backgroundColor: Theme.of(context).cardTheme.color,
+          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+          builder: (context) => _buildTaxInteractiveSheet(taxType, currencyFormat, context),
+        );
+      });
     }
 
     return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const GlobalHeader(
-              title: 'Expenses',
-              subtitle: 'Analytics & Tax',
+              title: 'Tax',
+              subtitle: 'Analytics & Management',
               showLogo: false,
-            ),
-            // Statistic Summary Card
-            Container(
-              margin: const EdgeInsets.all(25),
-              padding: const EdgeInsets.all(25),
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: Colors.white.withOpacity(0.05)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('Statistic', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.05),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: const Row(
-                          children: [
-                            Text('Monthly', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
-                            SizedBox(width: 4),
-                            Icon(Icons.keyboard_arrow_down, size: 16),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 15),
-                  Row(
-                    children: [
-                      _buildIndicator(AppColors.primary, 'Income'),
-                      const SizedBox(width: 20),
-                      _buildIndicator(Colors.white30, 'Expenses'),
-                    ],
-                  ),
-                  const SizedBox(height: 30),
-                  SizedBox(
-                    height: 200,
-                    child: BarChart(
-                      BarChartData(
-                        alignment: BarChartAlignment.spaceAround,
-                        maxY: 600,
-                        barTouchData: BarTouchData(enabled: false),
-                        titlesData: FlTitlesData(
-                          show: true,
-                          bottomTitles: AxisTitles(
-                            sideTitles: SideTitles(
-                              showTitles: true,
-                              getTitlesWidget: (value, meta) {
-                                final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
-                                if (value.toInt() < months.length) {
-                                  return Padding(
-                                    padding: const EdgeInsets.only(top: 10),
-                                    child: Text(months[value.toInt()], style: const TextStyle(color: AppColors.textHint, fontSize: 10)),
-                                  );
-                                }
-                                return const Text('');
-                              },
-                            ),
-                          ),
-                          leftTitles: AxisTitles(
-                            sideTitles: SideTitles(
-                              showTitles: true,
-                              reservedSize: 35,
-                              getTitlesWidget: (value, meta) {
-                                return Text('₹${value.toInt()}', style: const TextStyle(color: AppColors.textHint, fontSize: 10));
-                              },
-                            ),
-                          ),
-                          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                        ),
-                        gridData: FlGridData(
-                          show: true,
-                          drawVerticalLine: false,
-                          getDrawingHorizontalLine: (value) => FlLine(color: Colors.white.withOpacity(0.05), strokeWidth: 1),
-                        ),
-                        borderData: FlBorderData(show: false),
-                        barGroups: [
-                          _buildBarGroup(0, 450, 310),
-                          _buildBarGroup(1, 380, 240),
-                          _buildBarGroup(2, 520, 410),
-                          _buildBarGroup(3, 410, 280),
-                          _buildBarGroup(4, 490, 350),
-                          _buildBarGroup(5, 540, 420),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Income / Expense Summary Cards
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 25),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _buildSummaryCard(
-                      'Income', 
-                      currencyFormat.format(metrics.income), 
-                      Icons.arrow_downward_rounded,
-                      AppColors.surface,
-                      AppColors.primary,
-                    ),
-                  ),
-                  const SizedBox(width: 15),
-                  Expanded(
-                    child: _buildSummaryCard(
-                      'Expense', 
-                      currencyFormat.format(metrics.expense), 
-                      Icons.arrow_upward_rounded,
-                      AppColors.primary,
-                      Colors.black,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Transactions Section
-            const Padding(
-              padding: EdgeInsets.fromLTRB(25, 30, 25, 15),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('Transactions', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                  Icon(Icons.tune_outlined, color: Colors.white70, size: 20),
-                ],
-              ),
-            ),
-
-            ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 25),
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: transactions.length > 5 ? 5 : transactions.length,
-              separatorBuilder: (context, index) => const SizedBox(height: 12),
-              itemBuilder: (context, index) => TransactionTile(
-                transaction: transactions[index],
-                onTap: () => showMockAction('Details'),
-              ),
             ),
 
             // Tax Analytics Section
-            const Padding(
-              padding: EdgeInsets.fromLTRB(25, 30, 25, 15),
-              child: Text('Tax Analytics', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(25, 30, 25, 15),
+              child: Text('Tax Analytics', 
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87)
+              ),
             ),
             GestureDetector(
-              onTap: () => showMockAction('Full Tax Report'),
+              onTap: () {
+                Navigator.push(context, MaterialPageRoute(builder: (context) => const TaxReportView()));
+              },
               child: Container(
                 margin: const EdgeInsets.symmetric(horizontal: 25),
                 padding: const EdgeInsets.all(25),
                 decoration: BoxDecoration(
-                  color: AppColors.surface,
+                  color: Theme.of(context).cardTheme.color,
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: Colors.white.withOpacity(0.05)),
+                  border: Border.all(color: (isDark ? Colors.white : Colors.black).withOpacity(0.05)),
+                  boxShadow: isDark ? [] : [
+                    BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 20, offset: const Offset(0, 10))
+                  ],
                 ),
                 child: Column(
                   children: [
@@ -219,26 +107,33 @@ class ExpensesView extends ConsumerWidget {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Est. Tax Payable (2024-25)', style: TextStyle(color: Colors.white30, fontSize: 12)),
+                            Text('Est. Tax Payable (2024-25)', 
+                              style: TextStyle(color: isDark ? Colors.white30 : Colors.black45, fontSize: 12)
+                            ),
                             const SizedBox(height: 8),
                             Text(currencyFormat.format(metrics.estimatedTax), 
-                              style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                              style: TextStyle(
+                                color: isDark ? Colors.white : Colors.black87, 
+                                fontSize: 24, 
+                                fontWeight: FontWeight.bold
+                              )
+                            ),
                           ],
                         ),
                         Container(
                           padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(16)),
-                          child: const Icon(Icons.receipt_long_outlined, color: AppColors.primary),
+                          decoration: BoxDecoration(color: primaryColor.withOpacity(0.1), borderRadius: BorderRadius.circular(16)),
+                          child: Icon(Icons.receipt_long_outlined, color: primaryColor),
                         ),
                       ],
                     ),
-                    const Divider(height: 40, color: Colors.white10),
+                    Divider(height: 40, color: (isDark ? Colors.white : Colors.black).withOpacity(0.1)),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        _buildTaxInfo('Income', currencyFormat.format(metrics.income)),
-                        _buildTaxInfo('80C Save', currencyFormat.format(metrics.deductions80C)),
-                        _buildTaxInfo('Taxable', currencyFormat.format(metrics.income - metrics.deductions80C)),
+                        _buildTaxInfo(context, 'Income', currencyFormat.format(metrics.income)),
+                        _buildTaxInfo(context, '80C Save', currencyFormat.format(metrics.deductions80C)),
+                        _buildTaxInfo(context, 'Taxable', currencyFormat.format(metrics.income - metrics.deductions80C)),
                       ],
                     ),
                   ],
@@ -246,19 +141,49 @@ class ExpensesView extends ConsumerWidget {
               ),
             ),
 
+            // Tax Services Section
+            Padding(
+              padding: const EdgeInsets.fromLTRB(25, 30, 25, 15),
+              child: Text('Tax Services', 
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87)
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 25),
+              child: GridView.count(
+                crossAxisCount: 2,
+                crossAxisSpacing: 15,
+                mainAxisSpacing: 15,
+                childAspectRatio: 1.1,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                children: [
+                  _buildTaxServiceCard(context, 'Home Tax', Icons.home_work_outlined, Colors.blueAccent, () => handleTaxAction('Home Tax')),
+                  _buildTaxServiceCard(context, 'Water Tax', Icons.water_drop_outlined, Colors.cyan, () => handleTaxAction('Water Tax')),
+                  _buildTaxServiceCard(context, 'TDS Claim', Icons.account_balance_wallet_outlined, primaryColor, () => handleTaxAction('TDS Claim')),
+                  _buildTaxServiceCard(context, 'Other Tax', Icons.receipt_long, Colors.orange, () => handleTaxAction('Other Tax')),
+                ],
+              ),
+            ),
+
             // Expense Breakdown Chart
-            const Padding(
-              padding: EdgeInsets.fromLTRB(25, 30, 25, 15),
-              child: Text('Expense Breakdown', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(25, 30, 25, 15),
+              child: Text('Expense Breakdown', 
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87)
+              ),
             ),
             Container(
               height: 250,
               margin: const EdgeInsets.symmetric(horizontal: 25),
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: AppColors.surface, 
+                color: Theme.of(context).cardTheme.color, 
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: Colors.white.withOpacity(0.05)),
+                border: Border.all(color: (isDark ? Colors.white : Colors.black).withOpacity(0.05)),
+                boxShadow: isDark ? [] : [
+                  BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 15, offset: const Offset(0, 5))
+                ],
               ),
               child: BarChart(
                 BarChartData(
@@ -271,7 +196,7 @@ class ExpensesView extends ConsumerWidget {
                       sideTitles: SideTitles(
                         showTitles: true,
                         getTitlesWidget: (value, meta) {
-                          const style = TextStyle(color: AppColors.textHint, fontSize: 10);
+                          final style = TextStyle(color: isDark ? AppColors.textHint : LightColors.textHint, fontSize: 10);
                           final cats = metrics.expenseCategories.keys.toList();
                           if (value.toInt() < cats.length) {
                             return Text(cats[value.toInt()], style: style);
@@ -293,7 +218,7 @@ class ExpensesView extends ConsumerWidget {
                       barRods: [
                         BarChartRodData(
                           toY: e.value, 
-                          color: _getCategoryColor(e.key), 
+                          color: getCategoryColor(e.key), 
                           width: 20,
                           borderRadius: BorderRadius.circular(6),
                         )
@@ -311,79 +236,122 @@ class ExpensesView extends ConsumerWidget {
     );
   }
 
-  BarChartGroupData _buildBarGroup(int x, double y1, double y2) {
-    return BarChartGroupData(
-      x: x,
-      barRods: [
-        BarChartRodData(
-          toY: y1,
-          color: AppColors.primary,
-          width: 8,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
-        ),
-        BarChartRodData(
-          toY: y2,
-          color: Colors.white.withOpacity(0.1),
-          width: 8,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
-        ),
-      ],
-      barsSpace: 4,
-    );
-  }
-
-  Widget _buildIndicator(Color color, String label) {
-    return Row(
-      children: [
-        Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-        const SizedBox(width: 8),
-        Text(label, style: const TextStyle(color: Colors.white30, fontSize: 12)),
-      ],
-    );
-  }
-
-  Widget _buildSummaryCard(String label, String amount, IconData icon, Color bgColor, Color iconColor) {
-    final isPrimary = bgColor == AppColors.primary;
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: isPrimary ? Colors.black.withOpacity(0.1) : iconColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: iconColor, size: 20),
-          ),
-          const SizedBox(height: 20),
-          Text(label, style: TextStyle(color: isPrimary ? Colors.black54 : Colors.white54, fontSize: 12)),
-          const SizedBox(height: 5),
-          Text(amount, 
-            style: TextStyle(
-              color: isPrimary ? Colors.black : Colors.white, 
-              fontSize: 18, 
-              fontWeight: FontWeight.bold
-            )),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTaxInfo(String label, String value) {
+  Widget _buildTaxInfo(BuildContext context, String label, String value) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(color: Colors.white30, fontSize: 10)),
+        Text(label, style: TextStyle(color: isDark ? Colors.white30 : Colors.black38, fontSize: 10)),
         const SizedBox(height: 4),
-        Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+        Text(value, style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontWeight: FontWeight.bold, fontSize: 14)),
       ],
+    );
+  }
+
+  Widget _buildTaxServiceCard(BuildContext context, String title, IconData icon, Color color, VoidCallback onTap) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardTheme.color,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: (isDark ? Colors.white : Colors.black).withOpacity(0.05)),
+          boxShadow: isDark ? [] : [
+            BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4))
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: color, size: 28),
+            ),
+            const Spacer(),
+            Text(title, 
+              style: TextStyle(
+                fontWeight: FontWeight.bold, 
+                fontSize: 14,
+                color: isDark ? Colors.white : Colors.black87
+              )
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTaxInteractiveSheet(String taxType, NumberFormat format, BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Theme.of(context).colorScheme.primary;
+    double amount = taxType == 'Home Tax' ? 12500 : taxType == 'Water Tax' ? 1800 : taxType == 'TDS Claim' ? 45000 : 5000;
+    bool isClaim = taxType.contains('Claim');
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(30,30,30,50),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('$taxType ${isClaim ? 'Status' : 'Bill'}', 
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black)
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(color: Colors.green.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                child: const Text('LIVE', style: TextStyle(color: Colors.green, fontSize: 10, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Text(isClaim ? 'Estimated Refund Available:' : 'Outstanding Amount Due:', 
+            style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 14)
+          ),
+          const SizedBox(height: 8),
+          Text(format.format(amount), 
+            style: TextStyle(
+              fontSize: 36, 
+              fontWeight: FontWeight.bold, 
+              color: isDark ? Colors.white : Colors.black87, 
+              letterSpacing: -1
+            )
+          ),
+          const SizedBox(height: 35),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(isClaim ? 'TDS Claim process initiated successfully.' : '$taxType payment processed automatically.'),
+                    backgroundColor: isClaim ? primaryColor : Colors.redAccent,
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isClaim ? primaryColor : Colors.redAccent,
+                padding: const EdgeInsets.symmetric(vertical: 20),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              ),
+              child: Text(isClaim ? 'CLAIM NOW' : 'PAY SECURELY', 
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)
+              ),
+            ),
+          )
+        ],
+      ),
     );
   }
 }

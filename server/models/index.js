@@ -28,6 +28,10 @@ const User = sequelize.define('User', {
     unique: true,
     validate: { isEmail: true },
   },
+  password: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
   balance: {
     type: DataTypes.BIGINT,
     defaultValue: 0,
@@ -40,6 +44,35 @@ const User = sequelize.define('User', {
   isKycVerified: {
     type: DataTypes.BOOLEAN,
     defaultValue: false,
+  },
+  isEmailVerified: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+  },
+  emailVerificationToken: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  emailVerificationExpires: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
+  passwordResetToken: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  passwordResetExpires: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
+  loginAttempts: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0,
+    allowNull: false,
+  },
+  lockUntil: {
+    type: DataTypes.DATE,
+    allowNull: true,
   }
 });
 

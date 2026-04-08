@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 
@@ -28,7 +29,8 @@ class NotificationNotifier extends Notifier<List<PaymentNotification>> {
   List<PaymentNotification> build() => [];
 
   void connect(String userId) {
-    _socket = io.io('http://10.0.2.2:3000', <String, dynamic>{
+    const baseUrl = kIsWeb ? 'http://localhost:3000' : 'http://10.0.2.2:3000';
+    _socket = io.io(baseUrl, <String, dynamic>{
       'transports': ['websocket'],
       'autoConnect': false,
     });

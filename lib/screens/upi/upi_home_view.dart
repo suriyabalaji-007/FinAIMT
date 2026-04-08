@@ -10,7 +10,9 @@ import 'package:fin_aimt/screens/upi/bill_payment_view.dart';
 import 'package:fin_aimt/widgets/obscured_balance_widget.dart';
 import 'package:fin_aimt/widgets/upi_pin_dialog.dart';
 import 'package:fin_aimt/widgets/global_header.dart';
-import 'package:local_auth/local_auth.dart';
+import 'package:fin_aimt/screens/investments/transaction_history_view.dart';
+import 'package:fin_aimt/data/providers/transaction_provider.dart';
+import 'package:intl/intl.dart';
 
 class UPIHomeView extends ConsumerWidget {
   const UPIHomeView({super.key});
@@ -18,10 +20,12 @@ class UPIHomeView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final balance = ref.watch(financeDataProvider).totalBalance;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Theme.of(context).colorScheme.primary;
 
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: CustomScrollView(
+    return Container(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: CustomScrollView(
         slivers: [
           const SliverToBoxAdapter(
             child: GlobalHeader(
@@ -36,19 +40,24 @@ class UPIHomeView extends ConsumerWidget {
               margin: const EdgeInsets.symmetric(horizontal: 25, vertical: 10),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Colors.blue.shade900, Colors.black],
+                  colors: isDark 
+                    ? [Colors.blue.shade900, Colors.black] 
+                    : [primaryColor, primaryColor.withOpacity(0.8)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
                 borderRadius: BorderRadius.circular(24),
+                boxShadow: isDark ? [] : [
+                  BoxShadow(color: primaryColor.withOpacity(0.3), blurRadius: 15, offset: const Offset(0, 8))
+                ],
               ),
               child: Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Text(
+                    Text(
                       'Total Balance',
-                      style: TextStyle(color: Colors.white70, fontSize: 14),
+                      style: TextStyle(color: isDark ? Colors.white70 : Colors.white.withOpacity(0.9), fontSize: 14),
                     ),
                     const SizedBox(height: 8),
                     ObscuredBalanceWidget(
@@ -79,37 +88,53 @@ class UPIHomeView extends ConsumerWidget {
                   const SizedBox(height: 24),
 
                   // Linked Accounts
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16.0),
-                    child: Text('Linked Accounts', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                  ),
-                  const SizedBox(height: 12),
-                  _buildLinkedAccounts(ref),
-                  const SizedBox(height: 24),
-
-                  // Manage Cards
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16.0),
-                    child: Text('Manage Cards', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                  ),
-                  const SizedBox(height: 12),
-                  _buildManageCards(ref),
-                  const SizedBox(height: 24),
-
-                  // Transaction Filter + List
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16.0),
-                    child: Text(
-                      'Recent Transactions',
-                      style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: Text('Linked Accounts', 
+                      style: TextStyle(
+                        color: isDark ? Colors.white : Colors.black87, 
+                        fontSize: 18, 
+                        fontWeight: FontWeight.bold
+                      )
                     ),
                   ),
                   const SizedBox(height: 12),
-                  _buildTransactionFilterBar(),
+                  _buildLinkedAccounts(context, ref),
+                  const SizedBox(height: 24),
+
+                  // Manage Cards
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: Text('Manage Cards', 
+                      style: TextStyle(
+                        color: isDark ? Colors.white : Colors.black87, 
+                        fontSize: 18, 
+                        fontWeight: FontWeight.bold
+                      )
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildManageCards(context, ref),
+                  const SizedBox(height: 24),
+
+                  // Recent Transactions
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: Text(
+                      'Recent Transactions',
+                      style: TextStyle(
+                        color: isDark ? Colors.white : Colors.black87, 
+                        fontSize: 18, 
+                        fontWeight: FontWeight.bold
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildTransactionFilterBar(context),
                   const SizedBox(height: 12),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: _buildTransactionList(ref),
+                    child: _buildTransactionList(context, ref),
                   ),
                 ],
               ),
@@ -121,6 +146,7 @@ class UPIHomeView extends ConsumerWidget {
   }
 
   Widget _buildTransferMoney(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     void navigateToPayment(String name) {
       Navigator.push(context, MaterialPageRoute(builder: (_) => PaymentScreen(receiverId: 'mock-$name', receiverName: name)));
     }
@@ -128,9 +154,15 @@ class UPIHomeView extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-          child: Text('Transfer Money', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          child: Text('Transfer Money', 
+            style: TextStyle(
+              color: isDark ? Colors.white : Colors.black87, 
+              fontSize: 16, 
+              fontWeight: FontWeight.bold
+            )
+          ),
         ),
         GridView.count(
           shrinkWrap: true,
@@ -153,6 +185,7 @@ class UPIHomeView extends ConsumerWidget {
   }
 
   Widget _buildBillsAndRecharges(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     void navigateToPayment(String name) {
       Navigator.push(context, MaterialPageRoute(builder: (_) => PaymentScreen(receiverId: 'mock-$name', receiverName: name)));
     }
@@ -160,9 +193,15 @@ class UPIHomeView extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-          child: Text('Bills, Recharges and More', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          child: Text('Bills, Recharges and More', 
+            style: TextStyle(
+              color: isDark ? Colors.white : Colors.black87, 
+              fontSize: 16, 
+              fontWeight: FontWeight.bold
+            )
+          ),
         ),
         GridView.count(
           shrinkWrap: true,
@@ -185,18 +224,23 @@ class UPIHomeView extends ConsumerWidget {
   }
 
   Widget _buildOtherServices(BuildContext context, WidgetRef ref) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Theme.of(context).colorScheme.primary;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
       child: Row(
         children: [
           Expanded(
             child: OutlinedButton.icon(
-              onPressed: () {},
-              icon: const Icon(Icons.history, color: Colors.blue),
-              label: const Text('Show transaction history', style: TextStyle(color: Colors.white)),
+              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TransactionHistoryView())),
+              icon: Icon(Icons.history, color: primaryColor),
+              label: Text('Transaction history', 
+                style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 12)
+              ),
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 12),
-                side: BorderSide(color: Colors.grey.shade800),
+                side: BorderSide(color: (isDark ? Colors.white : Colors.black).withOpacity(0.1)),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               ),
             ),
@@ -211,23 +255,28 @@ class UPIHomeView extends ConsumerWidget {
                   builder: (ctx) => UpiPinDialog(
                     onPinEntered: (pin) async {
                       if (pin == '0000') throw Exception('Incorrect PIN');
-                      
                       if (context.mounted) {
                         final balance = ref.read(financeDataProvider).totalBalance;
                         showDialog(
                           context: context,
                           builder: (context) => AlertDialog(
-                            backgroundColor: Colors.grey.shade900,
-                            title: const Text('Bank Balance', style: TextStyle(color: Colors.white)),
+                            backgroundColor: Theme.of(context).cardTheme.color,
+                            title: Text('Bank Balance', 
+                              style: TextStyle(color: isDark ? Colors.white : Colors.black87)
+                            ),
                             content: Text(
                               'Available Balance:\n\n₹${balance.toStringAsFixed(2)}',
-                              style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+                              style: TextStyle(
+                                color: isDark ? Colors.white : Colors.black, 
+                                fontSize: 24, 
+                                fontWeight: FontWeight.bold
+                              ),
                               textAlign: TextAlign.center,
                             ),
                             actions: [
                               TextButton(
                                 onPressed: () => Navigator.pop(context),
-                                child: const Text('OK', style: TextStyle(color: Colors.blue)),
+                                child: Text('OK', style: TextStyle(color: primaryColor)),
                               ),
                             ],
                           ),
@@ -237,11 +286,13 @@ class UPIHomeView extends ConsumerWidget {
                   ),
                 );
               },
-              icon: const Icon(Icons.account_balance_wallet, color: Colors.blue),
-              label: const Text('Check bank balance', style: TextStyle(color: Colors.white)),
+              icon: Icon(Icons.account_balance_wallet, color: primaryColor),
+              label: Text('Check balance', 
+                style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 12)
+              ),
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 12),
-                side: BorderSide(color: Colors.grey.shade800),
+                side: BorderSide(color: (isDark ? Colors.white : Colors.black).withOpacity(0.1)),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               ),
             ),
@@ -252,6 +303,9 @@ class UPIHomeView extends ConsumerWidget {
   }
 
   Widget _actionButton(BuildContext context, IconData icon, String label, VoidCallback onTap) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Theme.of(context).colorScheme.primary;
+
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
@@ -260,44 +314,79 @@ class UPIHomeView extends ConsumerWidget {
         children: [
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: const BoxDecoration(
-              color: Color(0xFF1E1E1E), // Darker grey like GPay
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1E1E1E) : primaryColor.withOpacity(0.08),
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: Colors.blue.shade400, size: 28),
+            child: Icon(icon, color: primaryColor, size: 28),
           ),
           const SizedBox(height: 8),
           Text(
             label, 
             textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.white, fontSize: 11, height: 1.2),
+            style: TextStyle(
+              color: isDark ? Colors.white : Colors.black87, 
+              fontSize: 11, 
+              height: 1.2
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildTransactionList(WidgetRef ref) {
-    final transactions = ref.watch(financeDataProvider).transactions;
-    final displayCount = transactions.length > 8 ? 8 : transactions.length;
+  Widget _buildTransactionList(BuildContext context, WidgetRef ref) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Theme.of(context).colorScheme.primary;
+    final transactions = ref.watch(transactionHistoryProvider);
+    
+    if (transactions.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 20),
+          child: Column(
+            children: [
+              Icon(Icons.receipt_long_outlined, color: isDark ? Colors.white10 : Colors.black12, size: 48),
+              const SizedBox(height: 10),
+              Text('No recent transactions', style: TextStyle(color: isDark ? Colors.white30 : Colors.black38)),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final displayCount = transactions.length > 5 ? 5 : transactions.length;
+
     return ListView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       itemCount: displayCount,
       itemBuilder: (context, index) {
         final tx = transactions[index];
+        final isDebit = tx.side == 'buy' || tx.side == 'repayment'; // Simplified for banking view
+        
         return ListTile(
-          leading: CircleAvatar(
-            backgroundColor: Colors.grey.shade800,
-            child: Icon(tx.icon, color: Colors.white),
+          contentPadding: EdgeInsets.zero,
+          leading: Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: (isDark ? Colors.white : Colors.black).withOpacity(0.05),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              tx.category == 'Stocks' ? Icons.show_chart : tx.category == 'Loans' ? Icons.account_balance_wallet : Icons.shopping_bag,
+              color: isDark ? Colors.white70 : Colors.black54,
+              size: 20,
+            ),
           ),
-          title: Text(tx.title, style: const TextStyle(color: Colors.white)),
-          subtitle: Text(tx.subtitle, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+          title: Text(tx.assetName, style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontWeight: FontWeight.bold, fontSize: 14)),
+          subtitle: Text(tx.formattedDate, style: TextStyle(color: isDark ? Colors.white30 : Colors.black45, fontSize: 11)),
           trailing: Text(
-            '${tx.type == TransactionType.credit ? "+" : "-"}₹${tx.amount.toStringAsFixed(0)}',
+            '${isDebit ? "-" : "+"}₹${tx.totalAmount.toStringAsFixed(0)}',
             style: TextStyle(
-              color: tx.type == TransactionType.credit ? Colors.green : Colors.red,
+              color: !isDebit ? Colors.green : (isDark ? Colors.white : Colors.black87),
               fontWeight: FontWeight.bold,
+              fontSize: 14,
             ),
           ),
         );
@@ -305,8 +394,10 @@ class UPIHomeView extends ConsumerWidget {
     );
   }
 
-  Widget _buildLinkedAccounts(WidgetRef ref) {
+  Widget _buildLinkedAccounts(BuildContext context, WidgetRef ref) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final accounts = ref.watch(financeDataProvider).accounts;
+
     return SizedBox(
       height: 100,
       child: ListView.builder(
@@ -320,13 +411,12 @@ class UPIHomeView extends ConsumerWidget {
             margin: const EdgeInsets.only(right: 12),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.blue.shade900.withOpacity(0.5), Colors.black54],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+              color: Theme.of(context).cardTheme.color,
               borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: Colors.white10),
+              border: Border.all(color: (isDark ? Colors.white : Colors.black).withOpacity(0.05)),
+              boxShadow: isDark ? [] : [
+                BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))
+              ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -334,18 +424,22 @@ class UPIHomeView extends ConsumerWidget {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.account_balance, color: Colors.white70, size: 18),
+                    Icon(Icons.account_balance, color: isDark ? Colors.white70 : Colors.black45, size: 18),
                     const SizedBox(width: 8),
                     Flexible(
                       child: Text(acc.bankName, 
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                        style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontWeight: FontWeight.bold, fontSize: 13),
                         overflow: TextOverflow.ellipsis),
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
-                Text('₹${acc.balance.toStringAsFixed(0)}', style: const TextStyle(color: Colors.white70, fontSize: 16, fontWeight: FontWeight.bold)),
-                Text(acc.accountNumber, style: const TextStyle(color: Colors.white30, fontSize: 10)),
+                Text('₹${acc.balance.toStringAsFixed(0)}', 
+                  style: TextStyle(color: isDark ? Colors.white70 : Colors.black87, fontSize: 16, fontWeight: FontWeight.bold)
+                ),
+                Text(acc.accountNumber, 
+                  style: TextStyle(color: isDark ? Colors.white30 : Colors.black26, fontSize: 10)
+                ),
               ],
             ),
           );
@@ -354,7 +448,7 @@ class UPIHomeView extends ConsumerWidget {
     );
   }
 
-  Widget _buildManageCards(WidgetRef ref) {
+  Widget _buildManageCards(BuildContext context, WidgetRef ref) {
     final cards = ref.watch(financeDataProvider).creditCards;
     return SizedBox(
       height: 130,
@@ -403,19 +497,11 @@ class UPIHomeView extends ConsumerWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text('Due: ₹${card.balance.toStringAsFixed(0)}', style: const TextStyle(color: Colors.white70, fontSize: 11)),
-                    Row(
+                    const Row(
                       children: [
-                        InkWell(
-                          onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Card frozen temporarily'), behavior: SnackBarBehavior.floating)),
-                          child: const Icon(Icons.ac_unit, color: Colors.lightBlueAccent, size: 18),
-                        ),
-                        const SizedBox(width: 12),
-                        InkWell(
-                          onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Card limit settings'), behavior: SnackBarBehavior.floating)),
-                          child: const Icon(Icons.tune, color: Colors.white54, size: 18),
-                        ),
+                        Icon(Icons.ac_unit, color: Colors.lightBlueAccent, size: 18),
+                        SizedBox(width: 12),
+                        Icon(Icons.tune, color: Colors.white54, size: 18),
                       ],
                     ),
                   ],
@@ -428,8 +514,11 @@ class UPIHomeView extends ConsumerWidget {
     );
   }
 
-  Widget _buildTransactionFilterBar() {
+  Widget _buildTransactionFilterBar(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Theme.of(context).colorScheme.primary;
     final filters = ['All', 'Sent', 'Received', 'Bills'];
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: SizedBox(
@@ -442,11 +531,16 @@ class UPIHomeView extends ConsumerWidget {
             return Container(
               margin: const EdgeInsets.only(right: 10),
               child: FilterChip(
-                label: Text(filters[index], style: TextStyle(color: isFirst ? Colors.black : Colors.white70, fontSize: 12)),
+                label: Text(filters[index], 
+                  style: TextStyle(
+                    color: isFirst ? Colors.white : (isDark ? Colors.white70 : Colors.black54), 
+                    fontSize: 12
+                  )
+                ),
                 selected: isFirst,
-                selectedColor: Colors.blue,
-                backgroundColor: Colors.grey.shade900,
-                checkmarkColor: Colors.black,
+                selectedColor: primaryColor,
+                backgroundColor: (isDark ? Colors.white : Colors.black).withOpacity(0.05),
+                checkmarkColor: Colors.white,
                 onSelected: (_) {},
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                 side: BorderSide.none,
@@ -459,4 +553,3 @@ class UPIHomeView extends ConsumerWidget {
     );
   }
 }
-
